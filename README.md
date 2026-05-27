@@ -6,6 +6,16 @@ This project started as a desktop utility used for managing daily repair workflo
 
 ---
 
+## Demo
+
+![Demo](assets/demo.gif)
+
+## Screenshot
+
+![Lenovo Case Tracker Web Screenshot](assets/LCT_SS.jpg)
+
+---
+
 ## Features
 
 - Case tracking system

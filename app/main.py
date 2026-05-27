@@ -9,11 +9,13 @@ from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 from starlette.middleware.sessions import SessionMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from . import database as db
 from .security import constant_time_equals, create_csrf_token, create_session_token, is_default_secret, read_session_token, secure_cookies_enabled, verify_password
 
 app = FastAPI(title="Lenovo Case Tracker Web")
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 app.add_middleware(SessionMiddleware, secret_key=os.environ.get("LCT_SECRET_KEY", "dev-only-change-this-secret"))
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
 
@@ -167,71 +169,314 @@ def dashboard(request: Request, user: dict = Depends(current_user)):
     return template(request, "dashboard.html", {"user": user, "warning_default_secret": is_default_secret(), "counts": db.dashboard_counts(), "repeats": db.repeat_serial_groups(), "oldest_open": db.oldest_open_cases(limit=25), "status_colors": STATUS_COLORS})
 
 
+def sorted_cases(rows: list[dict], sort: str = "work_order", direction: str = "asc") -> list[dict]:
+    valid_sorts = {
+        "work_order": "work_order",
+        "serial_number": "serial_number",
+        "status": "status",
+        "parts": "parts",
+        "notes": "user_notes",
+        "timestamp": "timestamp",
+        "followup": "followup",
+    }
+
+    sort_key = valid_sorts.get(sort, "work_order")
+    reverse = direction == "desc"
+
+    def normalize(value):
+        if value is None:
+            return ""
+        if isinstance(value, bool):
+            return int(value)
+        return str(value).lower()
+
+    return sorted(rows, key=lambda row: normalize(row.get(sort_key)), reverse=reverse)
+
+
+def cases_redirect_url(
+    sort: str = "work_order",
+    direction: str = "asc",
+    search: str = "",
+    status: str = "All",
+    part: str = "All",
+    hide_complete: bool = True,
+    followups_only: bool = False,
+) -> str:
+    return (
+        f"/cases?"
+        f"sort={sort}"
+        f"&direction={direction}"
+        f"&search={search}"
+        f"&status={status}"
+        f"&part={part}"
+        f"&hide_complete={str(hide_complete).lower()}"
+        f"&followups_only={str(followups_only).lower()}"
+    )
+
+
 @app.get("/cases")
-def cases(request: Request, search: str = "", status: str = "All", part: str = "All", hide_complete: bool = True, followups_only: bool = False, user: dict = Depends(current_user)):
-    rows = db.list_cases(search=search, status=status, part=part, hide_complete=hide_complete, followups_only=followups_only)
-    analytics_cases = db.list_cases(hide_complete=hide_complete, followups_only=followups_only)
-    return template(request, "cases.html", {"user": user, "cases": rows, "analytics": db.analytics(analytics_cases), "status_colors": STATUS_COLORS, "search": search, "status": status, "part": part, "hide_complete": hide_complete, "followups_only": followups_only, "statuses": ["All"] + db.STATUS_OPTIONS, "parts": ["All"] + db.PART_OPTIONS + ["Other"], "repeat_serials": set(db.repeat_serial_groups().keys())})
+def cases(
+    request: Request,
+    search: str = "",
+    status: str = "All",
+    part: str = "All",
+    hide_complete: bool = True,
+    followups_only: bool = False,
+    sort: str = "work_order",
+    direction: str = "asc",
+    user: dict = Depends(current_user),
+):
+    rows = db.list_cases(
+        search=search,
+        status=status,
+        part=part,
+        hide_complete=hide_complete,
+        followups_only=followups_only,
+    )
+
+    rows = sorted_cases(rows, sort=sort, direction=direction)
+
+    analytics_cases = db.list_cases(
+        hide_complete=hide_complete,
+        followups_only=followups_only,
+    )
+
+    return template(
+        request,
+        "cases.html",
+        {
+            "user": user,
+            "cases": rows,
+            "analytics": db.analytics(analytics_cases),
+            "status_colors": STATUS_COLORS,
+            "search": search,
+            "status": status,
+            "part": part,
+            "hide_complete": hide_complete,
+            "followups_only": followups_only,
+            "sort": sort,
+            "direction": direction,
+            "statuses": ["All"] + db.STATUS_OPTIONS,
+            "parts": ["All"] + db.PART_OPTIONS + ["Other"],
+            "repeat_serials": set(db.repeat_serial_groups().keys()),
+        },
+    )
 
 
 @app.get("/cases/new")
 def new_case(request: Request, user: dict = Depends(current_user)):
-    return template(request, "case_form.html", {"user": user, "mode": "new", "case": None, "statuses": db.STATUS_OPTIONS, "parts": db.PART_OPTIONS, "selected_parts": [], "other": "", "user_notes": "", "errors": []})
+    return template(
+        request,
+        "case_form.html",
+        {
+            "user": user,
+            "mode": "new",
+            "case": None,
+            "statuses": db.STATUS_OPTIONS,
+            "parts": db.PART_OPTIONS,
+            "selected_parts": [],
+            "other": "",
+            "user_notes": "",
+            "errors": [],
+        },
+    )
 
 
 @app.post("/cases/new")
-def create_case(request: Request, work_order: str = Form(...), serial_number: str = Form(...), status: str = Form(...), parts: list[str] | None = Form(None), other: str = Form(""), notes: str = Form(""), csrf_token: str = Form(...), user: dict = Depends(current_user)):
+def create_case(
+    request: Request,
+    work_order: str = Form(...),
+    serial_number: str = Form(...),
+    status: str = Form(...),
+    parts: list[str] | None = Form(None),
+    other: str = Form(""),
+    notes: str = Form(""),
+    csrf_token: str = Form(...),
+    user: dict = Depends(current_user),
+):
     require_csrf(request, csrf_token)
+
     selected_parts = selected_parts_from_form(parts)
     errors = db.validate_case_fields(work_order, serial_number, status)
+
     if errors:
-        return template(request, "case_form.html", {"user": user, "mode": "new", "case": {"work_order": work_order, "serial_number": serial_number, "status": status}, "statuses": db.STATUS_OPTIONS, "parts": db.PART_OPTIONS, "selected_parts": selected_parts, "other": other, "user_notes": notes, "errors": errors})
-    db.create_case(work_order, serial_number, status, selected_parts, other, notes, changed_by=user["display_name"])
-    return RedirectResponse(cases_url(), status_code=303)
+        return template(
+            request,
+            "case_form.html",
+            {
+                "user": user,
+                "mode": "new",
+                "case": {
+                    "work_order": work_order,
+                    "serial_number": serial_number,
+                    "status": status,
+                },
+                "statuses": db.STATUS_OPTIONS,
+                "parts": db.PART_OPTIONS,
+                "selected_parts": selected_parts,
+                "other": other,
+                "user_notes": notes,
+                "errors": errors,
+            },
+        )
+
+    db.create_case(
+        work_order,
+        serial_number,
+        status,
+        selected_parts,
+        other,
+        notes,
+        changed_by=user["display_name"],
+    )
+
+    return RedirectResponse(
+        cases_redirect_url(sort="work_order", direction="asc"),
+        status_code=303,
+    )
 
 
 @app.get("/cases/{case_id}/edit")
 def edit_case(request: Request, case_id: int, user: dict = Depends(current_user)):
     case = db.get_case(case_id)
+
     if not case:
-        return RedirectResponse(cases_url(), status_code=303)
+        return RedirectResponse(
+            cases_redirect_url(sort="work_order", direction="asc"),
+            status_code=303,
+        )
+
     selected_parts, other, user_notes = db.parse_notes_field(case["notes"])
-    return template(request, "case_form.html", {"user": user, "mode": "edit", "case": case, "history": db.get_status_history(case_id), "statuses": db.STATUS_OPTIONS, "parts": db.PART_OPTIONS, "selected_parts": selected_parts, "other": other, "user_notes": user_notes, "errors": []})
+
+    return template(
+        request,
+        "case_form.html",
+        {
+            "user": user,
+            "mode": "edit",
+            "case": case,
+            "history": db.get_status_history(case_id),
+            "statuses": db.STATUS_OPTIONS,
+            "parts": db.PART_OPTIONS,
+            "selected_parts": selected_parts,
+            "other": other,
+            "user_notes": user_notes,
+            "errors": [],
+        },
+    )
 
 
 @app.post("/cases/{case_id}/edit")
-def update_case(request: Request, case_id: int, work_order: str = Form(...), serial_number: str = Form(...), status: str = Form(...), parts: list[str] | None = Form(None), other: str = Form(""), notes: str = Form(""), csrf_token: str = Form(...), user: dict = Depends(current_user)):
+def update_case(
+    request: Request,
+    case_id: int,
+    work_order: str = Form(...),
+    serial_number: str = Form(...),
+    status: str = Form(...),
+    parts: list[str] | None = Form(None),
+    other: str = Form(""),
+    notes: str = Form(""),
+    csrf_token: str = Form(...),
+    user: dict = Depends(current_user),
+):
     require_csrf(request, csrf_token)
+
     selected_parts = selected_parts_from_form(parts)
     errors = db.validate_case_fields(work_order, serial_number, status)
+
     if errors:
         case = db.get_case(case_id) or {"id": case_id}
-        case.update({"work_order": work_order, "serial_number": serial_number, "status": status})
-        return template(request, "case_form.html", {"user": user, "mode": "edit", "case": case, "statuses": db.STATUS_OPTIONS, "parts": db.PART_OPTIONS, "selected_parts": selected_parts, "other": other, "user_notes": notes, "errors": errors})
-    db.update_case(case_id, work_order, serial_number, status, selected_parts, other, notes, changed_by=user["display_name"])
-    return RedirectResponse(cases_url(), status_code=303)
+        case.update(
+            {
+                "work_order": work_order,
+                "serial_number": serial_number,
+                "status": status,
+            }
+        )
+
+        return template(
+            request,
+            "case_form.html",
+            {
+                "user": user,
+                "mode": "edit",
+                "case": case,
+                "statuses": db.STATUS_OPTIONS,
+                "parts": db.PART_OPTIONS,
+                "selected_parts": selected_parts,
+                "other": other,
+                "user_notes": notes,
+                "errors": errors,
+            },
+        )
+
+    db.update_case(
+        case_id,
+        work_order,
+        serial_number,
+        status,
+        selected_parts,
+        other,
+        notes,
+        changed_by=user["display_name"],
+    )
+
+    return RedirectResponse(
+        cases_redirect_url(sort="work_order", direction="asc"),
+        status_code=303,
+    )
 
 
 @app.post("/cases/{case_id}/delete")
-def delete_case(request: Request, case_id: int, csrf_token: str = Form(...), user: dict = Depends(current_user)):
+def delete_case(
+    request: Request,
+    case_id: int,
+    csrf_token: str = Form(...),
+    user: dict = Depends(current_user),
+):
     require_csrf(request, csrf_token)
     db.delete_case(case_id)
-    return RedirectResponse(cases_url(), status_code=303)
+
+    return RedirectResponse(
+        cases_redirect_url(sort="work_order", direction="asc"),
+        status_code=303,
+    )
 
 
 @app.post("/cases/{case_id}/status")
-def update_status(request: Request, case_id: int, status: str = Form(...), csrf_token: str = Form(...), user: dict = Depends(current_user)):
+def update_status(
+    request: Request,
+    case_id: int,
+    status: str = Form(...),
+    csrf_token: str = Form(...),
+    user: dict = Depends(current_user),
+):
     require_csrf(request, csrf_token)
+
     if status in db.STATUS_OPTIONS:
         db.update_status(case_id, status, changed_by=user["display_name"])
-    return RedirectResponse(cases_url(), status_code=303)
+
+    return RedirectResponse(
+        cases_redirect_url(sort="work_order", direction="asc"),
+        status_code=303,
+    )
 
 
 @app.post("/cases/{case_id}/followup")
-def toggle_followup(request: Request, case_id: int, followup: str = Form("false"), csrf_token: str = Form(...), user: dict = Depends(current_user)):
+def toggle_followup(
+    request: Request,
+    case_id: int,
+    followup: str = Form("false"),
+    csrf_token: str = Form(...),
+    user: dict = Depends(current_user),
+):
     require_csrf(request, csrf_token)
     db.set_followup(case_id, followup == "true")
-    return RedirectResponse(cases_url(), status_code=303)
+
+    return RedirectResponse(
+        cases_redirect_url(sort="work_order", direction="asc"),
+        status_code=303,
+    )
 
 
 @app.get("/repeats")
@@ -245,66 +490,100 @@ def analytics_page(request: Request, user: dict = Depends(current_user)):
     return template(request, "analytics.html", {"user": user, "analytics": db.analytics(), "counts": db.dashboard_counts(), "parts": db.part_breakdown(), "aging": db.aging_buckets(), "status_colors": STATUS_COLORS})
 
 
-@app.get("/account")
-def account_page(request: Request, user: dict = Depends(current_user)):
-    return template(request, "account.html", {"user": user, "error": "", "message": ""})
-
-
-@app.post("/account/password")
-def account_password(request: Request, current_password: str = Form(...), new_password: str = Form(...), csrf_token: str = Form(...), user: dict = Depends(current_user)):
-    require_csrf(request, csrf_token)
-    db_user = db.get_user_by_username(user["username"])
-    if not db_user or not verify_password(current_password, db_user["password_hash"]):
-        return template(request, "account.html", {"user": user, "error": "Current password was incorrect.", "message": ""})
-    if len(new_password) < 10:
-        return template(request, "account.html", {"user": user, "error": "New password must be at least 10 characters.", "message": ""})
-    db.change_user_password(user["id"], new_password)
-    return template(request, "account.html", {"user": user, "error": "", "message": "Password changed."})
-
-
 @app.get("/users")
 def users_page(request: Request, user: dict = Depends(current_user)):
     admin_required(user)
-    return template(request, "users.html", {"user": user, "users": db.list_users(), "error": ""})
+    return template(
+        request,
+        "users.html",
+        {
+            "user": user,
+            "users": db.list_users(),
+            "error": "",
+        },
+    )
 
 
 @app.post("/users")
-def create_user(request: Request, username: str = Form(...), display_name: str = Form(...), password: str = Form(...), role: str = Form("tech"), email: str = Form(""), csrf_token: str = Form(...), user: dict = Depends(current_user)):
+def create_user(
+    request: Request,
+    email: str = Form(...),
+    display_name: str = Form(...),
+    role: str = Form("tech"),
+    csrf_token: str = Form(...),
+    user: dict = Depends(current_user),
+):
     require_csrf(request, csrf_token)
     admin_required(user)
+
+    username = email.split("@")[0].strip().lower()
+
     try:
-        db.create_user(username, display_name, password, role, email)
+        db.create_user(
+            username=username,
+            display_name=display_name,
+            password=os.urandom(24).hex(),
+            role=role,
+            email=email.strip().lower(),
+        )
         return RedirectResponse("/users", status_code=303)
     except Exception as e:
-        return template(request, "users.html", {"user": user, "users": db.list_users(), "error": f"Could not create user: {e}"})
+        return template(
+            request,
+            "users.html",
+            {
+                "user": user,
+                "users": db.list_users(),
+                "error": f"Could not create user: {e}",
+            },
+        )
 
 
 @app.post("/users/{user_id}/update")
-def update_user(request: Request, user_id: int, display_name: str = Form(...), role: str = Form("tech"), is_active: str = Form("false"), csrf_token: str = Form(...), user: dict = Depends(current_user)):
+def update_user(
+    request: Request,
+    user_id: int,
+    display_name: str = Form(...),
+    role: str = Form("tech"),
+    is_active: str = Form("false"),
+    csrf_token: str = Form(...),
+    user: dict = Depends(current_user),
+):
     require_csrf(request, csrf_token)
     admin_required(user)
+
     if user_id == user["id"] and role != "admin":
-        raise HTTPException(status_code=400, detail="You cannot remove your own admin role.")
-    db.update_user(user_id, display_name, role, is_active == "true")
-    return RedirectResponse("/users", status_code=303)
+        raise HTTPException(
+            status_code=400,
+            detail="You cannot remove your own admin role.",
+        )
 
+    db.update_user(
+        user_id=user_id,
+        display_name=display_name,
+        role=role,
+        is_active=is_active == "true",
+    )
 
-@app.post("/users/{user_id}/reset-password")
-def reset_password(request: Request, user_id: int, new_password: str = Form(...), csrf_token: str = Form(...), user: dict = Depends(current_user)):
-    require_csrf(request, csrf_token)
-    admin_required(user)
-    if len(new_password) < 10:
-        return template(request, "users.html", {"user": user, "users": db.list_users(), "error": "Password must be at least 10 characters."})
-    db.reset_user_password(user_id, new_password)
     return RedirectResponse("/users", status_code=303)
 
 
 @app.post("/users/{user_id}/delete")
-def delete_user(request: Request, user_id: int, csrf_token: str = Form(...), user: dict = Depends(current_user)):
+def delete_user(
+    request: Request,
+    user_id: int,
+    csrf_token: str = Form(...),
+    user: dict = Depends(current_user),
+):
     require_csrf(request, csrf_token)
     admin_required(user)
+
     if user_id == user["id"]:
-        raise HTTPException(status_code=400, detail="You cannot delete your own account.")
+        raise HTTPException(
+            status_code=400,
+            detail="You cannot delete your own account.",
+        )
+
     db.delete_user(user_id)
     return RedirectResponse("/users", status_code=303)
 

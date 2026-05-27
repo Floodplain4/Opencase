@@ -1,5 +1,159 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card"><h2>Analytics</h2><div class="analytics-grid">{% for label, value in analytics.items() %}<div class="stat {{ status_colors.get(label, '') }}"><strong>{{ value }}</strong><span>{{ label }}</span></div>{% endfor %}</div><form method="get" action="/cases" class="toolbar"><input name="search" placeholder="Search" value="{{ search }}"><select name="status">{% for option in statuses %}<option value="{{ option }}" {% if option == status %}selected{% endif %}>{{ option }}</option>{% endfor %}</select><select name="part">{% for option in parts %}<option value="{{ option }}" {% if option == part %}selected{% endif %}>{{ option }}</option>{% endfor %}</select><input type="hidden" name="hide_complete" value="{{ 'false' if hide_complete else 'true' }}"><input type="hidden" name="followups_only" value="{{ 'true' if followups_only else 'false' }}"><button type="submit">Apply Filter</button><a class="button secondary" href="/cases?hide_complete={{ 'false' if hide_complete else 'true' }}">{{ 'Show Complete Entries' if hide_complete else 'Hide Complete Entries' }}</a><a class="button secondary" href="/cases?hide_complete=true&followups_only={{ 'false' if followups_only else 'true' }}">{{ 'Show All Cases' if followups_only else 'Follow-ups Only' }}</a><a class="button secondary" href="/cases">Clear Filter</a><a class="button" href="/cases/new">Add Case</a></form></div>
-<div class="card"><p class="muted">Showing {{ cases|length }} entries.</p><div class="scroll-window"><table id="casesTable"><thead><tr><th onclick="sortTable('casesTable',0)">Work Order</th><th onclick="sortTable('casesTable',1)">Serial</th><th onclick="sortTable('casesTable',2)">Status</th><th onclick="sortTable('casesTable',3)">Parts</th><th onclick="sortTable('casesTable',4)">Notes</th><th onclick="sortTable('casesTable',5)">Timestamp</th><th>Actions</th></tr></thead><tbody>{% for case in cases %}<tr><td>{{ case.work_order }}</td><td>{{ case.serial_number }} {% if case.serial_number in repeat_serials %}<span class="repeat">• repeat</span>{% endif %}</td><td><form class="inline" method="post" action="/cases/{{ case.id }}/status"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><select name="status">{% for option in ['Ordered','Pending','Replaced','Returned','Complete'] %}<option value="{{ option }}" {% if option == case.status %}selected{% endif %}>{{ option }}</option>{% endfor %}</select><button class="small-button" type="submit">Update</button></form></td><td>{{ case.parts }}</td><td>{{ case.user_notes }}</td><td>{{ case.timestamp }}</td><td><div class="action-row"><form method="post" action="/cases/{{ case.id }}/followup"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="followup" value="{{ 'false' if case.followup else 'true' }}"><button class="small-button secondary" type="submit">{{ 'Clear Follow-up' if case.followup else 'Follow-up' }}</button></form><a class="button small-button" href="/cases/{{ case.id }}/edit">Edit</a><form method="post" action="/cases/{{ case.id }}/delete" onsubmit="return confirm('Delete this case?');"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="danger small-button" type="submit">Delete</button></form><textarea class="summary-copy" id="case-summary-{{ case.id }}">{{ case.summary }}</textarea><button class="small-button" type="button" data-copy-target="case-summary-{{ case.id }}" onclick="copyTextFromElement('case-summary-{{ case.id }}')">Copy</button></div></td></tr>{% else %}<tr><td colspan="7" class="muted">No matching cases found.</td></tr>{% endfor %}</tbody></table></div></div>
+
+<div class="card">
+    <h2>Analytics</h2>
+
+    <div class="analytics-grid">
+        {% for label, value in analytics.items() %}
+        <div class="stat {{ status_colors.get(label, '') }}">
+            <strong>{{ value }}</strong>
+            <span>{{ label }}</span>
+        </div>
+        {% endfor %}
+    </div>
+
+    <form method="get" action="/cases" class="toolbar">
+        <input name="search" placeholder="Search" value="{{ search }}">
+
+        <select name="status">
+            {% for option in statuses %}
+            <option value="{{ option }}" {% if option == status %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+        </select>
+
+        <select name="part">
+            {% for option in parts %}
+            <option value="{{ option }}" {% if option == part %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+        </select>
+
+        <input type="hidden" name="sort" value="{{ sort }}">
+        <input type="hidden" name="direction" value="{{ direction }}">
+        <input type="hidden" name="hide_complete" value="{{ 'true' if hide_complete else 'false' }}">
+        <input type="hidden" name="followups_only" value="{{ 'true' if followups_only else 'false' }}">
+
+        <button type="submit">Apply Filter</button>
+
+        <a class="button secondary"
+           href="/cases?sort={{ sort }}&direction={{ direction }}&hide_complete={{ 'false' if hide_complete else 'true' }}&followups_only={{ 'true' if followups_only else 'false' }}">
+            {{ 'Show Complete Entries' if hide_complete else 'Hide Complete Entries' }}
+        </a>
+
+        <a class="button secondary"
+           href="/cases?sort={{ sort }}&direction={{ direction }}&hide_complete=true&followups_only={{ 'false' if followups_only else 'true' }}">
+            {{ 'Show All Cases' if followups_only else 'Follow-ups Only' }}
+        </a>
+
+        <a class="button secondary" href="/cases">Clear Filter</a>
+        <a class="button" href="/cases/new">Add Case</a>
+    </form>
+</div>
+
+<div class="card">
+    <p class="muted">
+        Showing {{ cases|length }} entries. Sorted by {{ sort.replace('_', ' ') }} {{ direction }}.
+    </p>
+
+    <div class="scroll-window">
+        <table id="casesTable">
+            <thead>
+                <tr>
+                    <th>
+                        <a href="/cases?sort=work_order&direction={% if sort == 'work_order' and direction == 'asc' %}desc{% else %}asc{% endif %}&search={{ search }}&status={{ status }}&part={{ part }}&hide_complete={{ 'true' if hide_complete else 'false' }}&followups_only={{ 'true' if followups_only else 'false' }}">
+                            Work Order
+                        </a>
+                    </th>
+                    <th>
+                        <a href="/cases?sort=serial_number&direction={% if sort == 'serial_number' and direction == 'asc' %}desc{% else %}asc{% endif %}&search={{ search }}&status={{ status }}&part={{ part }}&hide_complete={{ 'true' if hide_complete else 'false' }}&followups_only={{ 'true' if followups_only else 'false' }}">
+                            Serial
+                        </a>
+                    </th>
+                    <th>
+                        <a href="/cases?sort=status&direction={% if sort == 'status' and direction == 'asc' %}desc{% else %}asc{% endif %}&search={{ search }}&status={{ status }}&part={{ part }}&hide_complete={{ 'true' if hide_complete else 'false' }}&followups_only={{ 'true' if followups_only else 'false' }}">
+                            Status
+                        </a>
+                    </th>
+                    <th>
+                        <a href="/cases?sort=parts&direction={% if sort == 'parts' and direction == 'asc' %}desc{% else %}asc{% endif %}&search={{ search }}&status={{ status }}&part={{ part }}&hide_complete={{ 'true' if hide_complete else 'false' }}&followups_only={{ 'true' if followups_only else 'false' }}">
+                            Parts
+                        </a>
+                    </th>
+                    <th>
+                        <a href="/cases?sort=notes&direction={% if sort == 'notes' and direction == 'asc' %}desc{% else %}asc{% endif %}&search={{ search }}&status={{ status }}&part={{ part }}&hide_complete={{ 'true' if hide_complete else 'false' }}&followups_only={{ 'true' if followups_only else 'false' }}">
+                            Notes
+                        </a>
+                    </th>
+                    <th>
+                        <a href="/cases?sort=timestamp&direction={% if sort == 'timestamp' and direction == 'asc' %}desc{% else %}asc{% endif %}&search={{ search }}&status={{ status }}&part={{ part }}&hide_complete={{ 'true' if hide_complete else 'false' }}&followups_only={{ 'true' if followups_only else 'false' }}">
+                            Timestamp
+                        </a>
+                    </th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for case in cases %}
+                <tr>
+                    <td>{{ case.work_order }}</td>
+
+                    <td>
+                        {{ case.serial_number }}
+                        {% if case.serial_number in repeat_serials %}
+                        <span class="repeat">• repeat</span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        <form class="inline" method="post" action="/cases/{{ case.id }}/status">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <select name="status">
+                                {% for option in ['Ordered','Pending','Replaced','Returned','Complete'] %}
+                                <option value="{{ option }}" {% if option == case.status %}selected{% endif %}>{{ option }}</option>
+                                {% endfor %}
+                            </select>
+                            <button class="small-button" type="submit">Update</button>
+                        </form>
+                    </td>
+
+                    <td>{{ case.parts }}</td>
+                    <td>{{ case.user_notes }}</td>
+                    <td>{{ case.timestamp }}</td>
+
+                    <td>
+                        <div class="action-row">
+                            <form method="post" action="/cases/{{ case.id }}/followup">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <input type="hidden" name="followup" value="{{ 'false' if case.followup else 'true' }}">
+                                <button class="small-button secondary" type="submit">
+                                    {{ 'Clear Follow-up' if case.followup else 'Follow-up' }}
+                                </button>
+                            </form>
+
+                            <a class="button small-button" href="/cases/{{ case.id }}/edit">Edit</a>
+
+                            <form method="post" action="/cases/{{ case.id }}/delete" onsubmit="return confirm('Delete this case?');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <button class="danger small-button" type="submit">Delete</button>
+                            </form>
+
+                            <textarea class="summary-copy" id="case-summary-{{ case.id }}">WO {{ case.work_order }} | Serial {{ case.serial_number }} | Parts: {{ case.parts if case.parts else 'None' }} | Status: {{ case.status }}</textarea>
+
+                            <button class="small-button" type="button" data-copy-target="case-summary-{{ case.id }}" onclick="copyTextFromElement('case-summary-{{ case.id }}')">
+                                Copy
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="muted">No matching cases found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
 {% endblock %}

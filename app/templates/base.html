@@ -20,7 +20,14 @@
         .scroll-window { max-height:430px; overflow:auto; border:1px solid var(--border); border-radius:10px; }
         table { width:100%; border-collapse:collapse; background:var(--panel-dark); }
         th,td { border-bottom:1px solid var(--border); padding:7px 8px; text-align:left; vertical-align:middle; }
-        th { background:var(--panel); cursor:pointer; user-select:none; position:sticky; top:0; z-index:1; font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+        th {
+    background: var(--panel);
+    cursor: pointer;
+    user-select: none;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
         input,select,textarea,button { background:var(--bg); color:#f9fafb; border:1px solid #4b5563; border-radius:8px; padding:8px; }
         textarea { width:min(900px,95%); }
         .button,button { background:var(--blue); color:white; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:6px; margin:2px; border:1px solid #60a5fa; border-radius:8px; padding:7px 10px; font-weight:650; white-space:nowrap; }
@@ -53,6 +60,24 @@
         .summary-copy { position:absolute; left:-9999px; top:-9999px; width:1px; height:1px; }
         .login-wrap { max-width:420px; margin:70px auto; }
         @media (max-width:950px) { .dashboard-grid { grid-template-columns:1fr; } }
+        table th a {
+    color: #dce6f2;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    transition: color 0.15s ease;
+}
+
+table th a:hover {
+    color: #7fb8ff;
+}
+
+table th {
+    white-space: nowrap;
+    background: rgba(255,255,255,0.03);
+}
     </style>
     <script>
         function sortTable(tableId,columnIndex,numeric=false){const t=document.getElementById(tableId);if(!t)return;const b=t.tBodies[0];const r=Array.from(b.rows);const c=t.getAttribute("data-sort-column");const d=t.getAttribute("data-sort-direction")||"asc";const n=c==columnIndex&&d==="asc"?"desc":"asc";r.sort((x,y)=>{const xc=x.cells[columnIndex],yc=y.cells[columnIndex];let a=(xc?.dataset.sortValue||xc?.innerText||"").trim();let z=(yc?.dataset.sortValue||yc?.innerText||"").trim();if(numeric){const an=parseFloat(a.replace(/[^0-9.-]/g,""))||0;const zn=parseFloat(z.replace(/[^0-9.-]/g,""))||0;return n==="asc"?an-zn:zn-an}return n==="asc"?a.localeCompare(z,undefined,{numeric:true,sensitivity:"base"}):z.localeCompare(a,undefined,{numeric:true,sensitivity:"base"})});r.forEach(row=>b.appendChild(row));t.setAttribute("data-sort-column",columnIndex);t.setAttribute("data-sort-direction",n)}
@@ -63,6 +88,42 @@
     </script>
 </head>
 <body>
-<header><div class="topbar"><div><h1>Lenovo Case Tracker Web</h1><div class="subtitle">Repair tracking, repeat-device review, and workflow analytics</div></div><nav>{% if user %}<a href="/">Dashboard</a><a href="/cases">Cases</a><a href="/cases/new">Add Case</a><a href="/analytics">Analytics</a><a href="/repeats">Repeat Serials</a><a href="/import">Import CSV</a><a href="/export">Export CSV</a><a href="/account">Account</a>{% if user.role == 'admin' %}<a href="/users">Users</a><a href="/backups">Backups</a>{% endif %}<a href="/docs">API Docs</a><form class="logout-form" method="post" action="/logout"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="logout-button" type="submit">Logout</button></form>{% endif %}</nav></div></header>
-<main>{% block content %}{% endblock %}</main>
-</body></html>
+<header>
+    <div class="topbar">
+        <div style="display:flex; align-items:center; gap:12px;">
+            <img src="/static/LCT_ICON.jpg" alt="Lenovo Case Tracker Web" style="height:46px; border-radius:10px;">
+            <div>
+                <h1>Lenovo Case Tracker Web</h1>
+                <div class="subtitle">Repair tracking, repeat-device review, and workflow analytics</div>
+            </div>
+        </div>
+
+        <nav>
+            {% if user %}
+            <a href="/">Dashboard</a>
+            <a href="/cases">Cases</a>
+            <a href="/cases/new">Add Case</a>
+            <a href="/analytics">Analytics</a>
+            <a href="/repeats">Repeat Serials</a>
+            <a href="/import">Import CSV</a>
+            <a href="/export">Export CSV</a>
+            {% if user.role == 'admin' %}
+            <a href="/users">Users</a>
+            <a href="/backups">Backups</a>
+            {% endif %}
+            <a href="/docs">API Docs</a>
+
+            <form class="logout-form" method="post" action="/logout">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button class="logout-button" type="submit">Logout</button>
+            </form>
+            {% endif %}
+        </nav>
+    </div>
+</header>
+
+<main>
+    {% block content %}{% endblock %}
+</main>
+</body>
+</html>

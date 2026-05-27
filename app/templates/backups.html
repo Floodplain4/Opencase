@@ -1,0 +1,4 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card"><h2>Database Backups</h2><form method="post" action="/backups/create"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit">Create Backup</button></form></div><div class="card"><table><tr><th>Name</th><th>Modified</th><th>Size</th><th>Download</th></tr>{% for row in backups %}<tr><td>{{ row.name }}</td><td>{{ row.modified }}</td><td>{{ row.size }}</td><td><a class="button small-button" href="/backups/download/{{ row.name }}">Download</a></td></tr>{% else %}<tr><td colspan="4" class="muted">No backups yet.</td></tr>{% endfor %}</table></div>
+{% endblock %}

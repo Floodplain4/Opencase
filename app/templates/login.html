@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="login-wrap card">
+    <h2>Login</h2>
+    <p class="muted">Lenovo Case Tracker Web</p>
+    {% if error %}<div class="errors">{{ error }}</div>{% endif %}
+
+    {% if google_enabled %}
+    <p><a class="button" href="/auth/google/login">Login with Google</a></p>
+    {% else %}
+    <div class="warning">Google OAuth is not configured yet. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.</div>
+    {% endif %}
+
+    {% if local_auth_enabled %}
+    <hr>
+    <form method="post" action="/login">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <p><label>Username</label><br><input name="username" required></p>
+        <p><label>Password</label><br><input name="password" type="password" required></p>
+        <button type="submit">Local Login</button>
+    </form>
+    {% endif %}
+
+    <p class="muted">No default password is stored in the public code. First admin comes from LCT_ADMIN_EMAIL.</p>
+</div>
+{% endblock %}

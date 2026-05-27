@@ -1,0 +1,4 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card"><h2>Repeat Serial Numbers</h2>{% if repeat_rows %}<div class="scroll-window"><table id="repeatTable"><tr><th onclick="sortTable('repeatTable',0)">Serial</th><th onclick="sortTable('repeatTable',1,true)">Count</th><th>Work Orders</th><th>Statuses</th><th>Latest Timestamp</th></tr>{% for row in repeat_rows %}<tr><td>{{ row.serial }}</td><td>{{ row.count }}</td><td>{{ row.work_orders }}</td><td>{{ row.statuses }}</td><td>{{ row.latest_timestamp }}</td></tr>{% endfor %}</table></div>{% else %}<p>No repeat serial numbers found.</p>{% endif %}</div>
+{% endblock %}

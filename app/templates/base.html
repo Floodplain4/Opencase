@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Lenovo Case Tracker Web</title>
+    <style>
+        :root { --bg:#111827; --panel:#1f2937; --panel-dark:#0f172a; --border:#374151; --text:#e5e7eb; --muted:#9ca3af; --blue:#2563eb; --blue-hover:#1d4ed8; --danger:#991b1b; }
+        body { margin:0; font-family:Segoe UI,Arial,sans-serif; background:var(--bg); color:var(--text); }
+        header { background:linear-gradient(135deg,#0f172a,#172554); padding:18px 26px 14px; border-bottom:1px solid var(--border); box-shadow:0 8px 22px rgba(0,0,0,.25); }
+        .topbar { display:flex; align-items:center; justify-content:space-between; gap:20px; flex-wrap:wrap; }
+        header h1 { margin:0; font-size:24px; }
+        .subtitle { color:#bfdbfe; margin-top:3px; font-size:13px; }
+        nav { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+        nav a,.logout-button { color:#dbeafe; text-decoration:none; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12); border-radius:999px; padding:8px 12px; font-size:13px; font-weight:650; }
+        nav a:hover,.logout-button:hover { background:rgba(96,165,250,.25); border-color:#60a5fa; }
+        .logout-form { display:inline; }
+        main { padding:22px; }
+        .card { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:16px; box-shadow:0 10px 20px rgba(0,0,0,.12); }
+        .dashboard-grid { display:grid; grid-template-columns:minmax(0,1fr) 330px; gap:16px; align-items:start; }
+        .scroll-window { max-height:430px; overflow:auto; border:1px solid var(--border); border-radius:10px; }
+        table { width:100%; border-collapse:collapse; background:var(--panel-dark); }
+        th,td { border-bottom:1px solid var(--border); padding:7px 8px; text-align:left; vertical-align:middle; }
+        th { background:var(--panel); cursor:pointer; user-select:none; position:sticky; top:0; z-index:1; font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+        input,select,textarea,button { background:var(--bg); color:#f9fafb; border:1px solid #4b5563; border-radius:8px; padding:8px; }
+        textarea { width:min(900px,95%); }
+        .button,button { background:var(--blue); color:white; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:6px; margin:2px; border:1px solid #60a5fa; border-radius:8px; padding:7px 10px; font-weight:650; white-space:nowrap; }
+        .button:hover,button:hover { background:var(--blue-hover); }
+        .danger { background:var(--danger); border-color:#ef4444; }
+        .secondary { background:#374151; border-color:#6b7280; }
+        .small-button { padding:5px 8px; font-size:12px; }
+        .muted { color:var(--muted); }
+        .repeat { color:#fde68a; font-weight:700; }
+        .followup-tag { color:#93c5fd; font-weight:700; }
+        .stats,.analytics-grid { display:flex; gap:12px; flex-wrap:wrap; }
+        .analytics-grid { margin-bottom:12px; }
+        .stat { min-width:110px; background:var(--panel-dark); border:1px solid var(--border); border-left-width:4px; border-radius:10px; padding:12px; text-align:center; }
+        .analytics-grid .stat { min-width:105px; padding:10px; }
+        .stat strong { display:block; font-size:24px; }
+        .analytics-grid .stat strong { font-size:18px; }
+        .stat.total { border-left-color:#60a5fa; } .stat.ordered { border-left-color:#3b82f6; } .stat.pending { border-left-color:#f59e0b; } .stat.replaced { border-left-color:#10b981; } .stat.returned { border-left-color:#ef4444; } .stat.complete { border-left-color:#9ca3af; } .stat.repeat { border-left-color:#fde68a; } .stat.followup { border-left-color:#93c5fd; }
+        form.inline { display:inline; }
+        .toolbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+        .action-row { display:flex; gap:5px; align-items:center; flex-wrap:nowrap; }
+        .errors,.warning { background:#7f1d1d; border:1px solid #ef4444; border-radius:8px; padding:10px; margin-bottom:12px; }
+        .warning { background:#78350f; border-color:#f59e0b; }
+        .paste-box { width:min(900px,95%); min-height:130px; }
+        .sort-hint { font-size:12px; color:var(--muted); }
+        .part-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; max-width:720px; }
+        .part-pill input { display:none; }
+        .part-pill span { display:block; padding:10px 12px; border-radius:10px; border:1px solid #4b5563; background:var(--bg); cursor:pointer; text-align:center; }
+        .part-pill input:checked+span { background:#1d4ed8; border-color:#60a5fa; font-weight:700; }
+        .work-order-picker { margin-top:10px; padding:10px; border:1px solid #4b5563; border-radius:8px; background:var(--panel-dark); display:none; }
+        .summary-copy { position:absolute; left:-9999px; top:-9999px; width:1px; height:1px; }
+        .login-wrap { max-width:420px; margin:70px auto; }
+        @media (max-width:950px) { .dashboard-grid { grid-template-columns:1fr; } }
+    </style>
+    <script>
+        function sortTable(tableId,columnIndex,numeric=false){const t=document.getElementById(tableId);if(!t)return;const b=t.tBodies[0];const r=Array.from(b.rows);const c=t.getAttribute("data-sort-column");const d=t.getAttribute("data-sort-direction")||"asc";const n=c==columnIndex&&d==="asc"?"desc":"asc";r.sort((x,y)=>{const xc=x.cells[columnIndex],yc=y.cells[columnIndex];let a=(xc?.dataset.sortValue||xc?.innerText||"").trim();let z=(yc?.dataset.sortValue||yc?.innerText||"").trim();if(numeric){const an=parseFloat(a.replace(/[^0-9.-]/g,""))||0;const zn=parseFloat(z.replace(/[^0-9.-]/g,""))||0;return n==="asc"?an-zn:zn-an}return n==="asc"?a.localeCompare(z,undefined,{numeric:true,sensitivity:"base"}):z.localeCompare(a,undefined,{numeric:true,sensitivity:"base"})});r.forEach(row=>b.appendChild(row));t.setAttribute("data-sort-column",columnIndex);t.setAttribute("data-sort-direction",n)}
+        function copyTextFromElement(id){const el=document.getElementById(id);if(!el)return;navigator.clipboard.writeText(el.value||el.textContent||"").then(()=>{const btn=document.querySelector(`[data-copy-target="${id}"]`);if(btn){const old=btn.textContent;btn.textContent="Copied";setTimeout(()=>btn.textContent=old,1100)}})}
+        function uniqueMatches(pattern,text){const m=[];let x;while((x=pattern.exec(text))!==null){const v=x[1].toUpperCase();if(!m.includes(v))m.push(v)}return m}
+        function setWorkOrderOptions(workOrders){const p=document.getElementById("workOrderPicker"),o=document.getElementById("workOrderOptions"),i=document.getElementById("work_order");if(!p||!o||!i)return;o.innerHTML="";if(workOrders.length===0){p.style.display="none";return}i.value=workOrders[0];if(workOrders.length===1){p.style.display="none";return}p.style.display="block";workOrders.forEach((wo,index)=>{const l=document.createElement("label");const r=document.createElement("input");r.type="radio";r.name="work_order_choice";r.value=wo;r.checked=index===0;r.addEventListener("change",()=>{i.value=wo});l.appendChild(r);l.appendChild(document.createTextNode(" "+wo));o.appendChild(l)})}
+        function parseLenovoText(){const ta=document.getElementById("lenovoPasteText");if(!ta)return;const text=ta.value||"";if(!text.trim())return;let w=[];[/\bWO\s*[:#-]?\s*(\d{6,10})\b/gi,/\bwork\s*order\s*[:#-]?\s*(\d{6,10})\b/gi].forEach(p=>w=w.concat(uniqueMatches(p,text)));setWorkOrderOptions([...new Set(w)]);for(const p of [/Serial\s*Number\s*[\r\n\s:-]*([A-Z0-9]{7,10})/i,/\bSerial\s*[:#-]?\s*([A-Z0-9]{7,10})\b/i,/\b(PW[A-Z0-9]{5,8})\b/i,/\b(PF[A-Z0-9]{5,8})\b/i]){const m=text.match(p);if(m){document.getElementById("serial_number").value=m[1].toUpperCase();break}}const title=(text.match(/Case Title\s+([\s\S]*?)(?:\nExternal Reference Number|\nProblem Description|\nPSPD Determination Flag|$)/i)||["",""])[1].trim();const problem=(text.match(/Problem Description\s+([\s\S]*?)(?:\nPSPD Determination Flag|\nDiagnostics Information|\nCase Type|$)/i)||["",""])[1].trim();const dt=`${title}\n${problem}\n${text}`.toLowerCase();const pk={"Top lid":[/\btop lid\b/i,/\blid\b/i,/\bback cover\b/i],"Hinges":[/\bhinge\b/i,/\bhinges\b/i],"Bezel":[/\bbezel\b/i],"LCD":[/\blcd\b/i,/\bscreen\b/i,/\bdisplay\b/i],"Keyboard":[/\bkeyboard\b/i,/\bkeys?\b/i],"Motherboard":[/\bmotherboard\b/i,/\bmainboard\b/i,/\bsystem board\b/i]};for(const [part,patterns] of Object.entries(pk)){const cb=document.querySelector(`input[name="parts"][value="${part}"]`);if(cb)cb.checked=patterns.some(p=>p.test(dt))}const other=document.getElementById("other");if(other){const mt=title.match(/\d+\s*-\s*(.+)$/i);const tp=mt?mt[1].trim():"";const selected=Array.from(document.querySelectorAll('input[name="parts"]:checked')).map(cb=>cb.value.toLowerCase());if(tp&&!selected.some(p=>tp.toLowerCase().includes(p)))other.value=tp}const notes=document.getElementById("notes");if(notes)notes.value=""}
+    </script>
+</head>
+<body>
+<header><div class="topbar"><div><h1>Lenovo Case Tracker Web</h1><div class="subtitle">Repair tracking, repeat-device review, and workflow analytics</div></div><nav>{% if user %}<a href="/">Dashboard</a><a href="/cases">Cases</a><a href="/cases/new">Add Case</a><a href="/analytics">Analytics</a><a href="/repeats">Repeat Serials</a><a href="/import">Import CSV</a><a href="/export">Export CSV</a><a href="/account">Account</a>{% if user.role == 'admin' %}<a href="/users">Users</a><a href="/backups">Backups</a>{% endif %}<a href="/docs">API Docs</a><form class="logout-form" method="post" action="/logout"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="logout-button" type="submit">Logout</button></form>{% endif %}</nav></div></header>
+<main>{% block content %}{% endblock %}</main>
+</body></html>

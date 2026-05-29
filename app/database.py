@@ -68,7 +68,9 @@ class DatabaseConnection:
     def execute(self, sql: str, params: tuple | list = ()):
         if self.is_postgres:
             sql = _convert_placeholders(sql)
-        return self.conn.cursor().execute(sql, params)
+        cursor = self.conn.cursor()
+        cursor.execute(sql, params)
+        return cursor
 
     def commit(self) -> None:
         self.conn.commit()

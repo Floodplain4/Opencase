@@ -35,6 +35,11 @@ if os.environ.get("GOOGLE_CLIENT_ID") and os.environ.get("GOOGLE_CLIENT_SECRET")
 
 STATUS_COLORS = {"Total":"total","Ordered":"ordered","Pending":"pending","Replaced":"replaced","Returned":"returned","Complete":"complete","Follow-ups":"followup","Repeat Serials":"repeat","Open":"pending","Complete %":"complete","Top Part":"total"}
 
+DEMO_USERNAME = "demo"
+DEMO_DISPLAY_NAME = "Demo User"
+DEMO_EMAIL = "demo@lenovocasetracker.local"
+
+
 
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
@@ -102,26 +107,56 @@ def admin_required(user: dict) -> None:
         raise HTTPException(status_code=403)
 
 
+def block_demo_user(user: dict) -> None:
+    if user.get("username") == DEMO_USERNAME:
+        raise HTTPException(status_code=403, detail="Demo user cannot make destructive changes.")
+
+
+
 @app.on_event("startup")
 def startup() -> None:
     db.initialize_database()
+
+
+def demo_login_enabled() -> bool:
+    return os.environ.get("DEMO_LOGIN_ENABLED", "true").strip().lower() == "true"
+
+
+def ensure_demo_user() -> dict:
+    existing = db.get_user_by_username(DEMO_USERNAME)
+    if existing:
+        return existing
+
+    db.create_user(
+        username=DEMO_USERNAME,
+        display_name=DEMO_DISPLAY_NAME,
+        password=os.urandom(24).hex(),
+        role="tech",
+        email=DEMO_EMAIL,
+    )
+
+    user = db.get_user_by_username(DEMO_USERNAME)
+    if not user:
+        raise HTTPException(status_code=500, detail="Demo user could not be created.")
+
+    return user
 
 
 @app.get("/login")
 def login_page(request: Request):
     if current_user_optional(request):
         return RedirectResponse("/", status_code=303)
-    return template(request, "login.html", {"user": None, "error": "", "google_enabled": hasattr(oauth, "google"), "local_auth_enabled": os.environ.get("LOCAL_AUTH_ENABLED", "false").strip().lower() == "true"})
+    return template(request, "login.html", {"user": None, "error": "", "google_enabled": hasattr(oauth, "google"), "local_auth_enabled": os.environ.get("LOCAL_AUTH_ENABLED", "false").strip().lower() == "true", "demo_enabled": demo_login_enabled()})
 
 
 @app.post("/login")
 def login(request: Request, username: str = Form(...), password: str = Form(...), csrf_token: str = Form(...)):
     require_csrf(request, csrf_token)
     if os.environ.get("LOCAL_AUTH_ENABLED", "false").strip().lower() != "true":
-        return template(request, "login.html", {"user": None, "error": "Local login is disabled. Use Google login.", "google_enabled": hasattr(oauth, "google"), "local_auth_enabled": False})
+        return template(request, "login.html", {"user": None, "error": "Local login is disabled. Use Google login.", "google_enabled": hasattr(oauth, "google"), "local_auth_enabled": False, "demo_enabled": demo_login_enabled()})
     user = db.get_user_by_username(username)
     if not user or not verify_password(password, user["password_hash"]):
-        return template(request, "login.html", {"user": None, "error": "Invalid username or password.", "google_enabled": hasattr(oauth, "google"), "local_auth_enabled": os.environ.get("LOCAL_AUTH_ENABLED", "false").strip().lower() == "true"})
+        return template(request, "login.html", {"user": None, "error": "Invalid username or password.", "google_enabled": hasattr(oauth, "google"), "local_auth_enabled": os.environ.get("LOCAL_AUTH_ENABLED", "false").strip().lower() == "true", "demo_enabled": demo_login_enabled()})
     redirect = RedirectResponse("/", status_code=303)
     set_session_cookie(redirect, user["id"])
     return redirect
@@ -152,6 +187,18 @@ async def google_callback(request: Request):
     user = db.create_or_get_oauth_user(email, display_name)
     if not user:
         raise HTTPException(status_code=403, detail="This Google account is not allowed. Ask an admin to add your email first.")
+    redirect = RedirectResponse("/", status_code=303)
+    set_session_cookie(redirect, user["id"])
+    return redirect
+
+
+@app.get("/demo-login")
+def demo_login():
+    if not demo_login_enabled():
+        raise HTTPException(status_code=404)
+
+    user = ensure_demo_user()
+
     redirect = RedirectResponse("/", status_code=303)
     set_session_cookie(redirect, user["id"])
     return redirect
@@ -436,6 +483,7 @@ def delete_case(
     user: dict = Depends(current_user),
 ):
     require_csrf(request, csrf_token)
+    block_demo_user(user)
     db.delete_case(case_id)
 
     return RedirectResponse(
@@ -659,6 +707,7 @@ def import_page(request: Request, user: dict = Depends(current_user)):
 @app.post("/import")
 async def import_csv(request: Request, file: UploadFile = File(...), csrf_token: str = Form(...), user: dict = Depends(current_user)):
     require_csrf(request, csrf_token)
+    block_demo_user(user)
     suffix = Path(file.filename or "upload.csv").suffix or ".csv"
     with NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         tmp.write(await file.read())

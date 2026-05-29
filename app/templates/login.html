@@ -3,24 +3,63 @@
 <div class="login-wrap card">
     <h2>Login</h2>
     <p class="muted">Lenovo Case Tracker Web</p>
-    {% if error %}<div class="errors">{{ error }}</div>{% endif %}
+
+    {% if error %}
+    <div class="errors">{{ error }}</div>
+    {% endif %}
 
     {% if google_enabled %}
-    <p><a class="button" href="/auth/google/login">Login with Google</a></p>
-    {% else %}
-    <div class="warning">Google OAuth is not configured yet. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.</div>
+    <p>
+        <a class="button" href="/auth/google/login">
+            Sign in with Google
+        </a>
+    </p>
+    {% endif %}
+
+    {% if demo_enabled %}
+    <div style="margin:16px 0;text-align:center;color:#9ca3af;">
+        ────────── or ──────────
+    </div>
+
+    <p>
+        <a class="button secondary" href="/demo-login">
+            Continue as Demo User
+        </a>
+    </p>
+
+    <div class="warning" style="margin-top:12px;">
+        Demo Mode contains fictional repair data for portfolio demonstration purposes only.
+    </div>
+    {% endif %}
+
+    {% if not google_enabled %}
+    <div class="warning">
+        Google OAuth is not configured yet.
+        Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.
+    </div>
     {% endif %}
 
     {% if local_auth_enabled %}
     <hr>
     <form method="post" action="/login">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <p><label>Username</label><br><input name="username" required></p>
-        <p><label>Password</label><br><input name="password" type="password" required></p>
+
+        <p>
+            <label>Username</label><br>
+            <input name="username" required>
+        </p>
+
+        <p>
+            <label>Password</label><br>
+            <input name="password" type="password" required>
+        </p>
+
         <button type="submit">Local Login</button>
     </form>
     {% endif %}
 
-    <p class="muted">Your information will only be stored temporarily.</p>
+    <p class="muted">
+        Your information will only be stored temporarily.
+    </p>
 </div>
 {% endblock %}

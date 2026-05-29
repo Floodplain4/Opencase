@@ -81,24 +81,24 @@ Administrative and destructive actions are restricted.
 
 ---
 
-### 🏗️ Architecture
-**Backend**
--FastAPI
--Python 3.12
--Jinja2 Templates
--Authlib OAuth Integration
+## 🏗️ Architecture
 
-**Database**
--PostgreSQL (Render)
--CSV import/export support
--Authentication
--Google OAuth
--Session-based authentication
--Role-based authorization
+### Backend
+- FastAPI
+- Python 3.12
+- Jinja2 Templates
+- Authlib OAuth Integration
 
-**Hosting**
--Render Web Services
--Render PostgreSQL
+### Database
+- PostgreSQL (Render)
+- CSV Import/Export
+- Google OAuth
+- Session-Based Authentication
+- Role-Based Authorization
+
+### Hosting
+- Render Web Services
+- Render PostgreSQL
 
 ---
 
@@ -123,7 +123,16 @@ The goal of the project was both practical workflow improvement and continued gr
 This application is intended as a portfolio and workflow-management project. Sensitive production data, real credentials, and internal organizational information should never be uploaded or committed to the repository.
 
 ---
+⚠️ Demo Data
 
-## 👤 Author
+The hosted demonstration environment contains fictional repair records created for demonstration purposes.
 
-**Tyler Ledbetter**
+No production data, student information, organizational records, or sensitive information should be uploaded to public deployments.
+
+👤 Author
+
+Tyler Ledbetter
+
+Field Service Technician | Python Developer | Cloud & Infrastructure Enthusiast
+
+GitHub: https://github.com/Floodplain4

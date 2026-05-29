@@ -83,22 +83,22 @@ Administrative and destructive actions are restricted.
 
 ### 🏗️ Architecture
 **Backend**
-FastAPI
-Python 3.12
-Jinja2 Templates
-Authlib OAuth Integration
+-FastAPI
+-Python 3.12
+-Jinja2 Templates
+-Authlib OAuth Integration
 
 **Database**
-PostgreSQL (Render)
-CSV import/export support
-Authentication
-Google OAuth
-Session-based authentication
-Role-based authorization
+-PostgreSQL (Render)
+-CSV import/export support
+-Authentication
+-Google OAuth
+-Session-based authentication
+-Role-based authorization
 
 **Hosting**
-Render Web Services
-Render PostgreSQL
+-Render Web Services
+-Render PostgreSQL
 
 ---
 

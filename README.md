@@ -81,17 +81,24 @@ Administrative and destructive actions are restricted.
 
 ---
 
-## 🛠️ Built With
+### 🏗️ Architecture
+**Backend**
+FastAPI
+Python 3.12
+Jinja2 Templates
+Authlib OAuth Integration
 
-- Python
-- FastAPI
-- SQLite
-- Jinja2
-- HTML/CSS
-- JavaScript
-- Google OAuth
-- Uvicorn
-- Render
+**Database**
+PostgreSQL (Render)
+CSV import/export support
+Authentication
+Google OAuth
+Session-based authentication
+Role-based authorization
+
+**Hosting**
+Render Web Services
+Render PostgreSQL
 
 ---
 

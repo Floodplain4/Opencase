@@ -36,69 +36,159 @@ def timestamp_for_filename() -> str:
     return datetime.now().strftime("%Y%m%d_%H%M%S")
 
 
-def get_connection() -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path())
-    conn.row_factory = sqlite3.Row
-    return conn
+def database_url() -> str:
+    url = os.environ.get("DATABASE_URL", "").strip()
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+    return url
+
+
+def using_postgres() -> bool:
+    return database_url().startswith(("postgresql://", "postgresql+psycopg2://"))
+
+
+def _convert_placeholders(sql: str) -> str:
+    # This app uses SQLite-style ? parameters. psycopg2 expects %s.
+    return sql.replace("?", "%s")
+
+
+class DatabaseConnection:
+    def __init__(self):
+        self.is_postgres = using_postgres()
+        if self.is_postgres:
+            import psycopg2
+            from psycopg2.extras import RealDictCursor
+
+            url = database_url().replace("postgresql+psycopg2://", "postgresql://", 1)
+            self.conn = psycopg2.connect(url, cursor_factory=RealDictCursor)
+        else:
+            self.conn = sqlite3.connect(db_path())
+            self.conn.row_factory = sqlite3.Row
+
+    def execute(self, sql: str, params: tuple | list = ()):
+        if self.is_postgres:
+            sql = _convert_placeholders(sql)
+        return self.conn.cursor().execute(sql, params)
+
+    def commit(self) -> None:
+        self.conn.commit()
+
+    def close(self) -> None:
+        self.conn.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        if exc_type is None:
+            self.conn.commit()
+        else:
+            self.conn.rollback()
+        self.conn.close()
+
+
+def get_connection() -> DatabaseConnection:
+    return DatabaseConnection()
 
 
 def initialize_database() -> None:
     with get_connection() as conn:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS cases (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                work_order TEXT,
-                serial_number TEXT,
-                status TEXT,
-                notes TEXT,
-                timestamp TEXT
+        if conn.is_postgres:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS cases (
+                    id SERIAL PRIMARY KEY,
+                    work_order TEXT,
+                    serial_number TEXT,
+                    status TEXT,
+                    notes TEXT,
+                    timestamp TEXT,
+                    followup INTEGER DEFAULT 0,
+                    assigned_to TEXT DEFAULT ''
+                )
+                """
             )
-            """
-        )
-
-        columns = {row["name"] for row in conn.execute("PRAGMA table_info(cases)").fetchall()}
-        if "followup" not in columns:
-            conn.execute("ALTER TABLE cases ADD COLUMN followup INTEGER DEFAULT 0")
-        if "assigned_to" not in columns:
-            conn.execute("ALTER TABLE cases ADD COLUMN assigned_to TEXT DEFAULT ''")
-
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT NOT NULL UNIQUE,
-                display_name TEXT NOT NULL,
-                password_hash TEXT NOT NULL,
-                role TEXT NOT NULL DEFAULT 'tech',
-                is_active INTEGER NOT NULL DEFAULT 1,
-                created_at TEXT NOT NULL,
-                auth_provider TEXT NOT NULL DEFAULT 'local',
-                email TEXT
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    username TEXT NOT NULL UNIQUE,
+                    display_name TEXT NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    role TEXT NOT NULL DEFAULT 'tech',
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL,
+                    auth_provider TEXT NOT NULL DEFAULT 'local',
+                    email TEXT
+                )
+                """
             )
-            """
-        )
-
-        user_columns = {row["name"] for row in conn.execute("PRAGMA table_info(users)").fetchall()}
-        if "auth_provider" not in user_columns:
-            conn.execute("ALTER TABLE users ADD COLUMN auth_provider TEXT NOT NULL DEFAULT 'local'")
-        if "email" not in user_columns:
-            conn.execute("ALTER TABLE users ADD COLUMN email TEXT")
-
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS status_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                case_id INTEGER NOT NULL,
-                old_status TEXT,
-                new_status TEXT NOT NULL,
-                changed_by TEXT,
-                changed_at TEXT NOT NULL,
-                note TEXT,
-                FOREIGN KEY(case_id) REFERENCES cases(id)
+            conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower ON users (lower(email))")
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS status_history (
+                    id SERIAL PRIMARY KEY,
+                    case_id INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+                    old_status TEXT,
+                    new_status TEXT NOT NULL,
+                    changed_by TEXT,
+                    changed_at TEXT NOT NULL,
+                    note TEXT
+                )
+                """
             )
-            """
-        )
+        else:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS cases (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    work_order TEXT,
+                    serial_number TEXT,
+                    status TEXT,
+                    notes TEXT,
+                    timestamp TEXT
+                )
+                """
+            )
+            columns = {row["name"] for row in conn.execute("PRAGMA table_info(cases)").fetchall()}
+            if "followup" not in columns:
+                conn.execute("ALTER TABLE cases ADD COLUMN followup INTEGER DEFAULT 0")
+            if "assigned_to" not in columns:
+                conn.execute("ALTER TABLE cases ADD COLUMN assigned_to TEXT DEFAULT ''")
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT NOT NULL UNIQUE,
+                    display_name TEXT NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    role TEXT NOT NULL DEFAULT 'tech',
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL,
+                    auth_provider TEXT NOT NULL DEFAULT 'local',
+                    email TEXT
+                )
+                """
+            )
+            user_columns = {row["name"] for row in conn.execute("PRAGMA table_info(users)").fetchall()}
+            if "auth_provider" not in user_columns:
+                conn.execute("ALTER TABLE users ADD COLUMN auth_provider TEXT NOT NULL DEFAULT 'local'")
+            if "email" not in user_columns:
+                conn.execute("ALTER TABLE users ADD COLUMN email TEXT")
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS status_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    case_id INTEGER NOT NULL,
+                    old_status TEXT,
+                    new_status TEXT NOT NULL,
+                    changed_by TEXT,
+                    changed_at TEXT NOT NULL,
+                    note TEXT,
+                    FOREIGN KEY(case_id) REFERENCES cases(id)
+                )
+                """
+            )
 
         user_count = conn.execute("SELECT COUNT(*) AS count FROM users").fetchone()["count"]
         if user_count == 0:
@@ -107,23 +197,13 @@ def initialize_database() -> None:
             local_auth_enabled = os.environ.get("LOCAL_AUTH_ENABLED", "false").strip().lower() == "true"
             admin_username = os.environ.get("LCT_ADMIN_USERNAME", "").strip().lower()
             admin_password = os.environ.get("LCT_ADMIN_PASSWORD", "")
-
             if admin_email:
                 conn.execute(
                     """
                     INSERT INTO users (username, display_name, password_hash, role, is_active, created_at, auth_provider, email)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (
-                        admin_email.split("@")[0],
-                        admin_display,
-                        hash_password(os.urandom(32).hex()),
-                        "admin",
-                        1,
-                        current_timestamp(),
-                        "google",
-                        admin_email,
-                    ),
+                    (admin_email.split("@")[0], admin_display, hash_password(os.urandom(32).hex()), "admin", 1, current_timestamp(), "google", admin_email),
                 )
             elif local_auth_enabled and admin_username and admin_password:
                 conn.execute(
@@ -131,23 +211,13 @@ def initialize_database() -> None:
                     INSERT INTO users (username, display_name, password_hash, role, is_active, created_at, auth_provider, email)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (
-                        admin_username,
-                        admin_display,
-                        hash_password(admin_password),
-                        "admin",
-                        1,
-                        current_timestamp(),
-                        "local",
-                        None,
-                    ),
+                    (admin_username, admin_display, hash_password(admin_password), "admin", 1, current_timestamp(), "local", None),
                 )
             else:
                 raise RuntimeError(
                     "First-run admin is not configured. Set LCT_ADMIN_EMAIL for Google login, "
                     "or enable LOCAL_AUTH_ENABLED=true and set LCT_ADMIN_USERNAME/LCT_ADMIN_PASSWORD."
                 )
-
         conn.commit()
 
 
@@ -394,14 +464,25 @@ def create_case(work_order: str, serial_number: str, status: str, parts: list[st
     timestamp = current_timestamp()
     structured_notes = build_notes_field(parts, other, notes)
     with get_connection() as conn:
-        cursor = conn.execute(
-            """
-            INSERT INTO cases (work_order, serial_number, status, notes, timestamp, followup, assigned_to)
-            VALUES (?, ?, ?, ?, ?, 0, ?)
-            """,
-            (work_order.strip(), serial_number.strip().upper(), status.strip(), structured_notes, timestamp, changed_by),
-        )
-        case_id = int(cursor.lastrowid)
+        if conn.is_postgres:
+            cursor = conn.execute(
+                """
+                INSERT INTO cases (work_order, serial_number, status, notes, timestamp, followup, assigned_to)
+                VALUES (?, ?, ?, ?, ?, 0, ?)
+                RETURNING id
+                """,
+                (work_order.strip(), serial_number.strip().upper(), status.strip(), structured_notes, timestamp, changed_by),
+            )
+            case_id = int(cursor.fetchone()["id"])
+        else:
+            cursor = conn.execute(
+                """
+                INSERT INTO cases (work_order, serial_number, status, notes, timestamp, followup, assigned_to)
+                VALUES (?, ?, ?, ?, ?, 0, ?)
+                """,
+                (work_order.strip(), serial_number.strip().upper(), status.strip(), structured_notes, timestamp, changed_by),
+            )
+            case_id = int(cursor.lastrowid)
         conn.execute(
             """
             INSERT INTO status_history (case_id, old_status, new_status, changed_by, changed_at, note)
@@ -599,22 +680,31 @@ def import_csv_file(path: Path) -> tuple[int, int]:
     with get_connection() as conn:
         conn.execute("DELETE FROM status_history")
         conn.execute("DELETE FROM cases")
-        try:
-            conn.execute("DELETE FROM sqlite_sequence WHERE name='cases'")
-        except sqlite3.Error:
-            pass
+        if not conn.is_postgres:
+            try:
+                conn.execute("DELETE FROM sqlite_sequence WHERE name='cases'")
+            except sqlite3.Error:
+                pass
         for row in rows[start_index:]:
             normalized = normalize_csv_row(row, headers)
             if not normalized:
                 skipped += 1
                 continue
-            cursor = conn.execute(
-                "INSERT INTO cases (work_order, serial_number, status, notes, timestamp, followup, assigned_to) VALUES (?, ?, ?, ?, ?, 0, '')",
-                (normalized["work_order"], normalized["serial_number"], normalized["status"], normalized["notes"], normalized["timestamp"]),
-            )
+            if conn.is_postgres:
+                cursor = conn.execute(
+                    "INSERT INTO cases (work_order, serial_number, status, notes, timestamp, followup, assigned_to) VALUES (?, ?, ?, ?, ?, 0, '') RETURNING id",
+                    (normalized["work_order"], normalized["serial_number"], normalized["status"], normalized["notes"], normalized["timestamp"]),
+                )
+                case_id = cursor.fetchone()["id"]
+            else:
+                cursor = conn.execute(
+                    "INSERT INTO cases (work_order, serial_number, status, notes, timestamp, followup, assigned_to) VALUES (?, ?, ?, ?, ?, 0, '')",
+                    (normalized["work_order"], normalized["serial_number"], normalized["status"], normalized["notes"], normalized["timestamp"]),
+                )
+                case_id = cursor.lastrowid
             conn.execute(
                 "INSERT INTO status_history (case_id, old_status, new_status, changed_by, changed_at, note) VALUES (?, ?, ?, ?, ?, ?)",
-                (cursor.lastrowid, None, normalized["status"], "import", normalized["timestamp"], "Imported from CSV"),
+                (case_id, None, normalized["status"], "import", normalized["timestamp"], "Imported from CSV"),
             )
             imported += 1
         conn.commit()
@@ -632,6 +722,10 @@ def export_csv_file(path: Path) -> None:
 
 def create_backup() -> Path:
     initialize_database()
+    if using_postgres():
+        dest = backup_dir() / f"lenovo_tracker_backup_{timestamp_for_filename()}.csv"
+        export_csv_file(dest)
+        return dest
     dest = backup_dir() / f"lenovo_tracker_backup_{timestamp_for_filename()}.db"
     shutil.copy2(db_path(), dest)
     return dest
@@ -639,7 +733,7 @@ def create_backup() -> Path:
 
 def list_backups() -> list[dict]:
     rows = []
-    for path in sorted(backup_dir().glob("*.db"), reverse=True):
+    for path in sorted(list(backup_dir().glob("*.db")) + list(backup_dir().glob("*.csv")), reverse=True):
         rows.append({"name": path.name, "size": path.stat().st_size, "modified": datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S")})
     return rows
 
@@ -647,4 +741,4 @@ def list_backups() -> list[dict]:
 def backup_path(filename: str) -> Optional[Path]:
     safe = Path(filename).name
     path = backup_dir() / safe
-    return path if path.exists() and path.suffix == ".db" else None
+    return path if path.exists() and path.suffix in (".db", ".csv") else None

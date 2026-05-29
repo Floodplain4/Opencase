@@ -13,15 +13,33 @@ This project started as a desktop Python utility used for managing daily repair 
 
 ---
 
+
+## 📸 Screenshot
+
+![Lenovo Case Tracker Web Screenshot](assets/LCT_SS.jpg)
+
+---
+
 ## 🚀 Live Demo
 
 👉 https://lenovo-case-tracker-web.onrender.com/
 
 ---
 
-## 📸 Screenshot
+Demo Access
 
-![Lenovo Case Tracker Web Screenshot](assets/LCT_SS.jpg)
+Use the Continue as Demo User button on the login page to explore the application immediately.
+
+The demo environment contains fictional repair records generated for portfolio and demonstration purposes.
+
+Demo users can:
+
+Browse repair cases
+Explore analytics dashboards
+Review repeat serial number detection
+View workflow history
+
+Administrative and destructive actions are restricted.
 
 ---
 

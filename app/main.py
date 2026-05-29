@@ -1,4 +1,5 @@
 import os
+from collections import Counter
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from urllib.parse import urlencode
@@ -481,8 +482,40 @@ def toggle_followup(
 
 @app.get("/repeats")
 def repeats(request: Request, user: dict = Depends(current_user)):
-    rows = [{"serial": s, "count": len(r), "work_orders": ", ".join(x["work_order"] for x in r), "statuses": ", ".join(x["status"] for x in r), "latest_timestamp": r[0]["timestamp"] if r else ""} for s, r in db.repeat_serial_groups().items()]
+    rows = []
+
+    for serial, case_rows in db.repeat_serial_groups().items():
+        part_counter = Counter()
+
+        for case in case_rows:
+            parts_text = case.get("parts") or "Unknown"
+            parts = [part.strip() for part in parts_text.split(",") if part.strip()]
+
+            if not parts:
+                part_counter["Unknown"] += 1
+            else:
+                for part in parts:
+                    part_counter[part] += 1
+
+        parts_summary = " | ".join(
+            f"{count} {part}{'' if count == 1 else 's'}"
+            for part, count in part_counter.most_common()
+        )
+
+        rows.append(
+            {
+                "serial": serial,
+                "count": len(case_rows),
+                "work_orders": ", ".join(case["work_order"] for case in case_rows),
+                "parts_summary": parts_summary or "None",
+                "latest_timestamp": max((case["timestamp"] for case in case_rows), default=""),
+            }
+        )
+
+    rows.sort(key=lambda row: row["count"], reverse=True)
+
     return template(request, "repeats.html", {"user": user, "repeat_rows": rows})
+
 
 
 @app.get("/analytics")

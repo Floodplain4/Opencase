@@ -1,4 +1,96 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card"><h2>Repeat Serial Numbers</h2>{% if repeat_rows %}<div class="scroll-window"><table id="repeatTable"><tr><th onclick="sortTable('repeatTable',0)">Serial</th><th onclick="sortTable('repeatTable',1,true)">Count</th><th>Work Orders</th><th>Statuses</th><th>Latest Timestamp</th></tr>{% for row in repeat_rows %}<tr><td>{{ row.serial }}</td><td>{{ row.count }}</td><td>{{ row.work_orders }}</td><td>{{ row.statuses }}</td><td>{{ row.latest_timestamp }}</td></tr>{% endfor %}</table></div>{% else %}<p>No repeat serial numbers found.</p>{% endif %}</div>
+
+<style>
+    .repeat-count {
+        font-weight: 800;
+        color: #ffffff;
+    }
+
+    .work-order-details summary {
+        cursor: pointer;
+        color: #dbeafe;
+        font-weight: 700;
+        list-style: none;
+    }
+
+    .work-order-details summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .work-order-details summary::after {
+        content: " +";
+        color: #93c5fd;
+        font-weight: 800;
+    }
+
+    .work-order-details[open] summary::after {
+        content: " −";
+    }
+
+    .work-order-list {
+        margin-top: 6px;
+        color: #e5e7eb;
+        font-size: 0.9rem;
+        line-height: 1.45;
+    }
+
+    .work-order-details {
+        min-width: 140px;
+    }
+
+    .parts-breakdown {
+        min-width: 260px;
+        white-space: normal;
+        color: rgba(255, 255, 255, 0.9);
+        line-height: 1.45;
+    }
+
+    .sortable-heading {
+        cursor: pointer;
+        user-select: none;
+    }
+</style>
+
+<div class="card">
+    <h2>Repeat Serial Numbers</h2>
+
+    {% if repeat_rows %}
+    <p class="muted">Sorted by repeat count by default. Click Serial or Count to sort.</p>
+
+    <div class="scroll-window">
+        <table id="repeatTable" data-sort-column="1" data-sort-direction="desc">
+            <thead>
+                <tr>
+                    <th class="sortable-heading" onclick="sortTable('repeatTable',0)">Serial ↕</th>
+                    <th class="sortable-heading" onclick="sortTable('repeatTable',1,true)">Count ↕</th>
+                    <th>Work Orders</th>
+                    <th>Parts Breakdown</th>
+                    <th>Latest Timestamp</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for row in repeat_rows %}
+                <tr>
+                    <td>{{ row.serial }}</td>
+                    <td data-sort-value="{{ row.count }}"><span class="repeat-count">{{ row.count }}</span></td>
+                    <td>
+                        <details class="work-order-details">
+                            <summary>{{ row.count }} work orders</summary>
+                            <div class="work-order-list">{{ row.work_orders }}</div>
+                        </details>
+                    </td>
+                    <td class="parts-breakdown">{{ row.parts_summary }}</td>
+                    <td>{{ row.latest_timestamp }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p>No repeat serial numbers found.</p>
+    {% endif %}
+</div>
+
 {% endblock %}

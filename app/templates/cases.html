@@ -2,20 +2,6 @@
 {% block content %}
 
 <style>
-    .cases-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 1rem;
-        margin-bottom: 0.75rem;
-    }
-
-    .cases-subtitle {
-        margin: 0;
-        color: #6b7280;
-        font-size: 0.95rem;
-    }
-
     .cases-table {
         width: 100%;
         border-collapse: separate;
@@ -23,98 +9,68 @@
     }
 
     .cases-table th {
-        position: sticky;
-        top: 0;
-        z-index: 2;
-        background: #f8fafc;
         text-align: left;
         font-size: 0.78rem;
         text-transform: uppercase;
         letter-spacing: 0.04em;
-        color: #64748b;
-        border-bottom: 1px solid #e5e7eb;
-        padding: 0.7rem 0.75rem;
         white-space: nowrap;
     }
 
     .cases-table td {
         padding: 0.55rem 0.75rem;
-        border-bottom: 1px solid #edf2f7;
         vertical-align: middle;
         font-size: 0.92rem;
     }
 
-    .cases-table tr:hover {
-        filter: brightness(0.985);
+    .status-row.status-ordered td:first-child {
+        border-left: 5px solid #ffc107;
     }
 
-    .status-row.status-ordered {
-        background: rgba(245, 158, 11, 0.10);
+    .status-row.status-pending td:first-child {
+        border-left: 5px solid #0d6efd;
     }
 
-    .status-row.status-pending {
-        background: rgba(59, 130, 246, 0.09);
+    .status-row.status-replaced td:first-child {
+        border-left: 5px solid #198754;
     }
 
-    .status-row.status-replaced {
-        background: rgba(34, 197, 94, 0.10);
+    .status-row.status-returned td:first-child {
+        border-left: 5px solid #dc3545;
     }
 
-    .status-row.status-returned {
-        background: rgba(239, 68, 68, 0.12);
-    }
-
-    .status-row.status-complete {
-        background: rgba(107, 114, 128, 0.08);
-        color: #4b5563;
+    .status-row.status-complete td:first-child {
+        border-left: 5px solid #6c757d;
     }
 
     .status-form {
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
         margin: 0;
-        white-space: nowrap;
     }
 
     .status-form select {
-        min-width: 108px;
+        min-width: 112px;
         height: 32px;
         padding: 0.2rem 0.45rem;
         font-size: 0.85rem;
     }
 
-    .status-save {
-        height: 32px;
-        padding: 0 0.55rem;
-        font-size: 0.78rem;
-        line-height: 1;
-    }
-
-    .status-pill {
-        display: inline-flex;
-        align-items: center;
-        border-radius: 999px;
-        padding: 0.2rem 0.55rem;
-        font-size: 0.75rem;
+    .serial-cell,
+    .work-order-cell {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
         font-weight: 700;
-        margin-left: 0.4rem;
-        background: #e5e7eb;
-        color: #374151;
+        white-space: nowrap;
     }
 
-    .repeat-badge {
-        display: inline-flex;
-        align-items: center;
-        border-radius: 999px;
-        padding: 0.15rem 0.45rem;
-        font-size: 0.7rem;
-        font-weight: 700;
-        background: #991b1b;
-        color: white;
-        margin-left: 0.35rem;
+    .parts-cell,
+    .timestamp-cell {
+        white-space: nowrap;
     }
 
+    .notes-cell {
+        max-width: 260px;
+        color: rgba(255, 255, 255, 0.86);
+    }
+
+    .repeat-badge,
     .followup-badge {
         display: inline-flex;
         align-items: center;
@@ -122,35 +78,16 @@
         padding: 0.15rem 0.45rem;
         font-size: 0.7rem;
         font-weight: 700;
-        background: #ea580c;
-        color: white;
         margin-left: 0.35rem;
+        color: white;
     }
 
-    .serial-cell {
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-        font-weight: 700;
-        white-space: nowrap;
+    .repeat-badge {
+        background: #991b1b;
     }
 
-    .work-order-cell {
-        font-weight: 700;
-        white-space: nowrap;
-    }
-
-    .parts-cell {
-        white-space: nowrap;
-    }
-
-    .notes-cell {
-        max-width: 340px;
-        color: #4b5563;
-    }
-
-    .timestamp-cell {
-        white-space: nowrap;
-        color: #64748b;
-        font-size: 0.85rem;
+    .followup-badge {
+        background: #ea580c;
     }
 
     .action-row {
@@ -223,14 +160,9 @@
 </div>
 
 <div class="card">
-    <div class="cases-header">
-        <div>
-            <h2>Cases</h2>
-            <p class="cases-subtitle">
-                Showing {{ cases|length }} entries. Sorted by {{ sort.replace('_', ' ') }} {{ direction }}.
-            </p>
-        </div>
-    </div>
+    <p class="muted">
+        Showing {{ cases|length }} entries. Sorted by {{ sort.replace('_', ' ') }} {{ direction }}.
+    </p>
 
     <div class="scroll-window">
         <table id="casesTable" class="cases-table">
@@ -288,17 +220,16 @@
                     <td>
                         <form class="status-form" method="post" action="/cases/{{ case.id }}/status">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                            <select name="status">
+                            <select name="status" onchange="this.form.submit()">
                                 {% for option in ['Ordered','Pending','Replaced','Returned','Complete'] %}
                                 <option value="{{ option }}" {% if option == case.status %}selected{% endif %}>{{ option }}</option>
                                 {% endfor %}
                             </select>
-                            <button class="small-button status-save" type="submit">Save</button>
                         </form>
                     </td>
 
                     <td class="parts-cell">{{ case.parts }}</td>
-                    <td class="notes-cell" title="{{ case.user_notes }}">{{ case.user_notes[:70] }}{% if case.user_notes|length > 70 %}...{% endif %}</td>
+                    <td class="notes-cell" title="{{ case.user_notes }}">{{ case.user_notes[:45] }}{% if case.user_notes|length > 45 %}...{% endif %}</td>
                     <td class="timestamp-cell">{{ case.timestamp }}</td>
 
                     <td>

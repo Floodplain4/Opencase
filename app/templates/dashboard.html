@@ -1,6 +1,166 @@
 {% extends "base.html" %}
 {% block content %}
+<style>
+    .dashboard-chart-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+        gap: 16px;
+        align-items: stretch;
+    }
+
+    .status-chart-card,
+    .aging-chart-card {
+        min-height: 260px;
+    }
+
+    .chart-bars {
+        display: grid;
+        gap: 12px;
+        margin-top: 14px;
+    }
+
+    .chart-row {
+        display: grid;
+        grid-template-columns: 104px minmax(0, 1fr) 42px;
+        gap: 10px;
+        align-items: center;
+        color: #dbeafe;
+        font-size: 0.9rem;
+    }
+
+    .chart-track {
+        height: 12px;
+        border-radius: 999px;
+        background: rgba(148, 163, 184, 0.16);
+        overflow: hidden;
+        border: 1px solid rgba(148, 163, 184, 0.12);
+    }
+
+    .chart-fill {
+        height: 100%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #60a5fa, #22c55e);
+        min-width: 3px;
+    }
+
+    .aging-list {
+        display: grid;
+        gap: 10px;
+        margin-top: 14px;
+    }
+
+    .aging-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        background: rgba(15, 23, 42, 0.72);
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        border-radius: 12px;
+        padding: 12px;
+    }
+
+    .aging-item strong {
+        font-size: 1.15rem;
+    }
+
+    @media (max-width: 950px) {
+        .dashboard-chart-grid {
+            grid-template-columns: 1fr;
+        }
+        .chart-row {
+            grid-template-columns: 88px minmax(0, 1fr) 34px;
+        }
+    }
+</style>
+
 {% if warning_default_secret %}<div class="warning">Development secret key is still in use. Set LCT_SECRET_KEY before deployment.</div>{% endif %}
-<div class="dashboard-grid"><div class="card"><h2>Dashboard</h2><div class="stats">{% for label, value in counts.items() %}<div class="stat {{ status_colors.get(label, '') }}"><strong>{{ value }}</strong><span>{{ label }}</span></div>{% endfor %}</div></div><div class="card"><h2>Repeat Serial Numbers</h2>{% if repeats %}<p><strong>{{ repeats|length }}</strong> serial number(s) appear more than once.</p><a class="button" href="/repeats">Review Repeat Serials</a>{% else %}<p class="muted">No repeat serials found.</p>{% endif %}</div></div>
-<div class="card"><h2>Oldest Open Cases</h2><div class="scroll-window"><table id="oldestOpenTable"><thead><tr><th onclick="sortTable('oldestOpenTable',0)">Work Order</th><th onclick="sortTable('oldestOpenTable',1)">Serial</th><th onclick="sortTable('oldestOpenTable',2)">Status</th><th onclick="sortTable('oldestOpenTable',3)">Parts</th><th onclick="sortTable('oldestOpenTable',4)">Timestamp</th><th>Summary</th></tr></thead><tbody>{% for case in oldest_open %}<tr><td>{{ case.work_order }}</td><td>{{ case.serial_number }}</td><td>{{ case.status }}</td><td>{{ case.parts }}</td><td>{{ case.timestamp }}</td><td><textarea class="summary-copy" id="dashboard-summary-{{ case.id }}">{{ case.summary }}</textarea><button class="small-button" type="button" data-copy-target="dashboard-summary-{{ case.id }}" onclick="copyTextFromElement('dashboard-summary-{{ case.id }}')">Copy</button></td></tr>{% else %}<tr><td colspan="6" class="muted">No open cases found.</td></tr>{% endfor %}</tbody></table></div></div>
+
+<div class="dashboard-grid">
+    <div class="card">
+        <h2>Dashboard</h2>
+        <div class="stats">
+            {% for label, value in counts.items() %}
+            <div class="stat {{ status_colors.get(label, '') }}">
+                <strong>{{ value }}</strong>
+                <span>{{ label }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Repeat Serial Numbers</h2>
+        {% if repeats %}
+        <p><strong>{{ repeats|length }}</strong> serial number(s) appear more than once.</p>
+        <a class="button" href="/repeats">Review Repeat Serials</a>
+        {% else %}
+        <p class="muted">No repeat serials found.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="dashboard-chart-grid">
+    <div class="card status-chart-card">
+        <h2>Status Breakdown</h2>
+        <p class="muted">Live case counts rendered from the database.</p>
+        <div class="chart-bars">
+            {% set total_cases = counts.get('Total', 0) %}
+            {% for label in ['Ordered', 'Pending', 'Replaced', 'Returned', 'Complete'] %}
+                {% set value = counts.get(label, 0) %}
+                {% set width = ((value / total_cases) * 100) if total_cases else 0 %}
+                <div class="chart-row">
+                    <span>{{ label }}</span>
+                    <div class="chart-track"><div class="chart-fill" style="width: {{ width }}%;"></div></div>
+                    <strong>{{ value }}</strong>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="card aging-chart-card">
+        <h2>Operational Signals</h2>
+        <p class="muted">Quick indicators for follow-up work and recurring devices.</p>
+        <div class="aging-list">
+            <div class="aging-item"><span>Follow-up flags</span><strong>{{ counts.get('Follow-ups', 0) }}</strong></div>
+            <div class="aging-item"><span>Repeat serial groups</span><strong>{{ counts.get('Repeat Serials', 0) }}</strong></div>
+            <div class="aging-item"><span>Open cases</span><strong>{{ counts.get('Total', 0) - counts.get('Complete', 0) }}</strong></div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Oldest Open Cases</h2>
+    <div class="scroll-window">
+        <table id="oldestOpenTable">
+            <thead>
+                <tr>
+                    <th onclick="sortTable('oldestOpenTable',0)">Work Order</th>
+                    <th onclick="sortTable('oldestOpenTable',1)">Serial</th>
+                    <th onclick="sortTable('oldestOpenTable',2)">Status</th>
+                    <th onclick="sortTable('oldestOpenTable',3)">Parts</th>
+                    <th onclick="sortTable('oldestOpenTable',4)">Timestamp</th>
+                    <th>Summary</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for case in oldest_open %}
+                <tr>
+                    <td>{{ case.work_order }}</td>
+                    <td>{{ case.serial_number }}</td>
+                    <td>{{ case.status }}</td>
+                    <td>{{ case.parts }}</td>
+                    <td>{{ case.timestamp }}</td>
+                    <td>
+                        <textarea class="summary-copy" id="dashboard-summary-{{ case.id }}">{{ case.summary }}</textarea>
+                        <button class="small-button" type="button" data-copy-target="dashboard-summary-{{ case.id }}" onclick="copyTextFromElement('dashboard-summary-{{ case.id }}')">Copy</button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="muted">No open cases found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 {% endblock %}

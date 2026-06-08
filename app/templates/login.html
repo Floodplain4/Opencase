@@ -1,92 +1,458 @@
 {% extends "base.html" %}
 {% block content %}
+<style>
+    .landing-shell {
+        max-width: 1180px;
+        margin: 28px auto 52px;
+        display: grid;
+        grid-template-columns: minmax(0, 1.08fr) 430px;
+        gap: 26px;
+        align-items: stretch;
+    }
+
+    .hero-panel,
+    .auth-panel,
+    .feature-card,
+    .mockup-card {
+        background: rgba(31, 41, 55, 0.88);
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        border-radius: 22px;
+        box-shadow: 0 22px 60px rgba(0, 0, 0, 0.22);
+    }
+
+    .hero-panel {
+        overflow: hidden;
+        position: relative;
+        padding: 34px;
+        background:
+            radial-gradient(circle at top left, rgba(37, 99, 235, 0.28), transparent 32%),
+            linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.94));
+    }
+
+    .hero-eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: #bfdbfe;
+        border: 1px solid rgba(147, 197, 253, 0.22);
+        background: rgba(37, 99, 235, 0.14);
+        border-radius: 999px;
+        padding: 7px 11px;
+        font-size: 0.82rem;
+        font-weight: 750;
+        margin-bottom: 18px;
+    }
+
+    .hero-panel h2 {
+        margin: 0;
+        font-size: clamp(2rem, 4vw, 3.35rem);
+        line-height: 1.02;
+        letter-spacing: -0.05em;
+    }
+
+    .hero-copy {
+        max-width: 680px;
+        margin: 18px 0 24px;
+        color: #cbd5e1;
+        font-size: 1.04rem;
+        line-height: 1.65;
+    }
+
+    .hero-actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 26px;
+    }
+
+    .landing-button {
+        min-height: 44px;
+        padding: 0 16px;
+        border-radius: 12px;
+        font-weight: 800;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        border: 1px solid rgba(96, 165, 250, 0.55);
+    }
+
+    .primary-cta {
+        background: #2563eb;
+        color: #ffffff;
+    }
+
+    .secondary-cta {
+        background: rgba(15, 23, 42, 0.82);
+        color: #dbeafe;
+    }
+
+    .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .feature-card {
+        padding: 14px;
+        background: rgba(15, 23, 42, 0.58);
+    }
+
+    .feature-card strong {
+        display: block;
+        margin-bottom: 5px;
+    }
+
+    .feature-card span {
+        color: #94a3b8;
+        font-size: 0.86rem;
+        line-height: 1.4;
+    }
+
+    .mockup-card {
+        margin-top: 24px;
+        overflow: hidden;
+        background: #0f172a;
+    }
+
+    .mockup-topbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 14px;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+        background: rgba(15, 23, 42, 0.92);
+    }
+
+    .mock-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: #64748b;
+    }
+
+    .mockup-body {
+        padding: 16px;
+    }
+
+    .mock-stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+    .mock-stat {
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        border-radius: 14px;
+        padding: 12px;
+        background: rgba(30, 41, 59, 0.82);
+    }
+
+    .mock-stat strong {
+        display: block;
+        font-size: 1.35rem;
+    }
+
+    .mock-stat span {
+        color: #94a3b8;
+        font-size: 0.76rem;
+    }
+
+    .mock-content-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 220px;
+        gap: 14px;
+    }
+
+    .mock-table {
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        border-radius: 14px;
+        overflow: hidden;
+        background: rgba(15, 23, 42, 0.84);
+    }
+
+    .mock-row {
+        display: grid;
+        grid-template-columns: 0.8fr 1fr 0.8fr;
+        gap: 8px;
+        padding: 10px 12px;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+        font-size: 0.82rem;
+        color: #cbd5e1;
+    }
+
+    .mock-row:last-child {
+        border-bottom: 0;
+    }
+
+    .mock-badge {
+        display: inline-flex;
+        width: fit-content;
+        padding: 3px 8px;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 800;
+        background: rgba(245, 158, 11, 0.18);
+        color: #fbbf24;
+    }
+
+    .mock-chart {
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        border-radius: 14px;
+        padding: 14px;
+        background: rgba(15, 23, 42, 0.84);
+    }
+
+    .bar-line {
+        display: grid;
+        grid-template-columns: 68px 1fr 28px;
+        gap: 8px;
+        align-items: center;
+        margin: 10px 0;
+        color: #cbd5e1;
+        font-size: 0.76rem;
+    }
+
+    .bar-track {
+        height: 9px;
+        border-radius: 999px;
+        background: rgba(148, 163, 184, 0.16);
+        overflow: hidden;
+    }
+
+    .bar-fill {
+        height: 100%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #60a5fa, #22c55e);
+    }
+
+    .auth-panel {
+        padding: 24px;
+        align-self: start;
+        position: sticky;
+        top: 20px;
+    }
+
+    .auth-panel h2 {
+        margin: 0 0 6px;
+        font-size: 1.55rem;
+    }
+
+    .auth-subtitle {
+        margin: 0 0 18px;
+        color: #94a3b8;
+        line-height: 1.45;
+    }
+
+    .auth-button {
+        width: 100%;
+        min-height: 46px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        font-weight: 800;
+        text-decoration: none;
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        margin: 7px 0;
+        box-sizing: border-box;
+    }
+
+    .google-auth {
+        background: #ffffff;
+        color: #1f2937;
+    }
+
+    .google-auth svg {
+        width: 19px;
+        height: 19px;
+        flex: none;
+    }
+
+    .demo-auth {
+        background: rgba(37, 99, 235, 0.16);
+        color: #dbeafe;
+        border-color: rgba(96, 165, 250, 0.44);
+    }
+
+    .auth-divider {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 13px 0;
+        color: #94a3b8;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 800;
+    }
+
+    .auth-divider::before,
+    .auth-divider::after {
+        content: "";
+        height: 1px;
+        flex: 1;
+        background: rgba(148, 163, 184, 0.24);
+    }
+
+    .auth-note {
+        margin-top: 14px;
+        padding: 12px;
+        border-radius: 14px;
+        background: rgba(245, 158, 11, 0.13);
+        border: 1px solid rgba(245, 158, 11, 0.24);
+        color: #fde68a;
+        font-size: 0.86rem;
+        line-height: 1.45;
+    }
+
+    .stack-list {
+        margin-top: 18px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .stack-pill {
+        padding: 6px 9px;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.76);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        color: #cbd5e1;
+        font-size: 0.78rem;
+        font-weight: 750;
+    }
+
+    .landing-footer {
+        margin-top: 16px;
+        color: #64748b;
+        font-size: 0.82rem;
+        line-height: 1.45;
+    }
+
+    @media (max-width: 980px) {
+        .landing-shell {
+            grid-template-columns: 1fr;
+            margin-top: 8px;
+        }
+        .auth-panel {
+            position: static;
+        }
+        .feature-grid,
+        .mock-stats,
+        .mock-content-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
 <div class="landing-shell">
-    <section class="landing-hero">
-        <div class="eyebrow">IT repair workflow platform</div>
-        <h2 class="hero-title">Track device repairs without losing the thread.</h2>
+    <section class="hero-panel">
+        <div class="hero-eyebrow">Portfolio Web App • FastAPI + PostgreSQL</div>
+        <h2>OpenCase streamlines enterprise work order and part tracking.</h2>
         <p class="hero-copy">
-            OpenCase helps IT teams manage repair cases, repeat devices, parts, status changes,
-            CSV imports, backups, and workflow analytics from one focused dashboard.
+            A cloud-hosted repair workflow platform for IT teams: track cases, monitor aging work orders,
+            identify repeat devices, manage users, import/export CSV data, and review operational analytics from one dashboard.
         </p>
 
-        <div class="feature-list">
-            <div class="feature-item"><span class="feature-icon">✓</span><span>Monitor open repairs, follow-ups, and oldest active cases.</span></div>
-            <div class="feature-item"><span class="feature-icon">✓</span><span>Spot repeat serial numbers before they become recurring tickets.</span></div>
-            <div class="feature-item"><span class="feature-icon">✓</span><span>Use role-based access, Google sign-in, demo mode, imports, exports, and backups.</span></div>
+        <div class="hero-actions">
+            {% if demo_enabled %}
+            <a class="landing-button primary-cta" href="/demo-login">Launch Demo</a>
+            {% endif %}
+            {% if google_enabled %}
+            <a class="landing-button secondary-cta" href="/auth/google/login">Sign in with Google</a>
+            {% endif %}
         </div>
 
-        <div class="auth-panel">
-            <h3 style="margin-top:0;">Try the demo</h3>
+        <div class="feature-grid">
+            <div class="feature-card"><strong>Database-backed workflow</strong><span>CRUD operations, status history, repeat serial detection, and structured part tracking.</span></div>
+            <div class="feature-card"><strong>Secure access model</strong><span>Google OAuth, role-based admin tools, CSRF protection, and session cookies.</span></div>
+            <div class="feature-card"><strong>Operational analytics</strong><span>Dashboard metrics, aging buckets, CSV import/export, and backup management.</span></div>
+        </div>
 
-            {% if error %}
-            <div class="errors">{{ error }}</div>
-            {% endif %}
-
-            <div class="auth-actions">
-                {% if google_enabled %}
-                <a class="button auth-button google-button" href="/auth/google/login">
-                    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-                        <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/>
-                        <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/>
-                        <path fill="#FBBC05" d="M3.97 10.72A5.41 5.41 0 0 1 3.69 9c0-.6.1-1.18.28-1.72V4.95H.96A9 9 0 0 0 0 9c0 1.45.35 2.82.96 4.05l3.01-2.33z"/>
-                        <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.9 11.42 0 9 0A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/>
-                    </svg>
-                    Sign in with Google
-                </a>
-                {% endif %}
-
-                {% if google_enabled and demo_enabled %}
-                <div class="divider">or</div>
-                {% endif %}
-
-                {% if demo_enabled %}
-                <a class="button auth-button secondary" href="/demo-login">
-                    Launch portfolio demo
-                </a>
-                <p class="muted" style="margin:4px 0 0; font-size:12px;">
-                    Demo mode uses fictional repair data only.
-                </p>
-                {% endif %}
+        <div class="mockup-card" aria-label="OpenCase dashboard preview">
+            <div class="mockup-topbar"><span class="mock-dot"></span><span class="mock-dot"></span><span class="mock-dot"></span><span class="muted" style="margin-left:8px;">OpenCase dashboard preview</span></div>
+            <div class="mockup-body">
+                <div class="mock-stats">
+                    <div class="mock-stat"><strong>128</strong><span>Total Cases</span></div>
+                    <div class="mock-stat"><strong>37</strong><span>Open</span></div>
+                    <div class="mock-stat"><strong>9</strong><span>Follow-ups</span></div>
+                    <div class="mock-stat"><strong>6</strong><span>Repeat Serials</span></div>
+                </div>
+                <div class="mock-content-grid">
+                    <div class="mock-table">
+                        <div class="mock-row"><strong>WO</strong><strong>Serial</strong><strong>Status</strong></div>
+                        <div class="mock-row"><span>482193</span><span>PF4X2Q91</span><span class="mock-badge">Pending</span></div>
+                        <div class="mock-row"><span>482311</span><span>PW03KD8A</span><span class="mock-badge">Ordered</span></div>
+                        <div class="mock-row"><span>482406</span><span>PF4X2Q91</span><span class="mock-badge">Repeat</span></div>
+                    </div>
+                    <div class="mock-chart">
+                        <strong>Status Mix</strong>
+                        <div class="bar-line"><span>Ordered</span><div class="bar-track"><div class="bar-fill" style="width:72%"></div></div><span>42</span></div>
+                        <div class="bar-line"><span>Pending</span><div class="bar-track"><div class="bar-fill" style="width:48%"></div></div><span>28</span></div>
+                        <div class="bar-line"><span>Replaced</span><div class="bar-track"><div class="bar-fill" style="width:31%"></div></div><span>18</span></div>
+                        <div class="bar-line"><span>Complete</span><div class="bar-track"><div class="bar-fill" style="width:90%"></div></div><span>52</span></div>
+                    </div>
+                </div>
             </div>
-
-            {% if not google_enabled %}
-            <div class="warning" style="margin-top:12px;">
-                Google OAuth is not configured yet. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.
-            </div>
-            {% endif %}
-
-            {% if local_auth_enabled %}
-            <div class="divider">local login</div>
-            <form method="post" action="/login">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <p><label>Username</label><br><input name="username" required></p>
-                <p><label>Password</label><br><input name="password" type="password" required></p>
-                <button class="auth-button" type="submit">Local Login</button>
-            </form>
-            {% endif %}
         </div>
     </section>
 
-    <section class="mockup-card" aria-label="OpenCase dashboard preview">
-        <div class="mockup-top">
-            <div class="window-dots"><span></span><span></span><span></span></div>
-            <div class="mockup-title">OpenCase Dashboard</div>
+    <aside class="auth-panel">
+        <h2>Access OpenCase</h2>
+        <p class="auth-subtitle">Review the live app with fictional portfolio data or sign in with an approved Google account.</p>
+
+        {% if error %}
+        <div class="errors">{{ error }}</div>
+        {% endif %}
+
+        {% if google_enabled %}
+        <a class="auth-button google-auth" href="/auth/google/login">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z"/>
+                <path fill="#EA4335" d="M12 5.37c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84C6.71 7.3 9.14 5.37 12 5.37z"/>
+            </svg>
+            Sign in with Google
+        </a>
+        {% endif %}
+
+        {% if google_enabled and demo_enabled %}
+        <div class="auth-divider"><span>or</span></div>
+        {% endif %}
+
+        {% if demo_enabled %}
+        <a class="auth-button demo-auth" href="/demo-login">Continue as Demo User</a>
+        <div class="auth-note">Demo mode uses fictional repair records only. It is intended for portfolio review and product walkthroughs.</div>
+        {% endif %}
+
+        {% if not google_enabled %}
+        <div class="warning">Google OAuth is not configured in this environment. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to enable Google sign-in.</div>
+        {% endif %}
+
+        {% if local_auth_enabled %}
+        <div class="auth-divider"><span>local</span></div>
+        <form method="post" action="/login">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <p><label>Username</label><br><input name="username" required></p>
+            <p><label>Password</label><br><input name="password" type="password" required></p>
+            <button type="submit" style="width:100%; min-height:44px;">Local Login</button>
+        </form>
+        {% endif %}
+
+        <div class="stack-list">
+            <span class="stack-pill">FastAPI</span>
+            <span class="stack-pill">PostgreSQL</span>
+            <span class="stack-pill">Jinja2</span>
+            <span class="stack-pill">OAuth</span>
+            <span class="stack-pill">Render</span>
         </div>
 
-        <div class="mockup-stats">
-            <div class="mock-stat"><strong>42</strong><span>Open</span></div>
-            <div class="mock-stat"><strong>9</strong><span>Follow-ups</span></div>
-            <div class="mock-stat"><strong>7</strong><span>Repeat Serials</span></div>
-            <div class="mock-stat"><strong>86%</strong><span>Complete</span></div>
-        </div>
-
-        <div class="mock-table">
-            <div class="mock-row header"><span>Work Order</span><span>Serial</span><span>Status</span><span>Parts</span></div>
-            <div class="mock-row"><span>482193</span><span>PF4X2Q91</span><span class="pill pending">Pending</span><span>LCD, Bezel</span></div>
-            <div class="mock-row"><span>482211</span><span>PW08K2A7</span><span class="pill ordered">Ordered</span><span>Keyboard</span></div>
-            <div class="mock-row"><span>482244</span><span>PF4X2Q91</span><span class="pill replaced">Replaced</span><span>Motherboard</span></div>
-            <div class="mock-row"><span>482319</span><span>PF9L0M22</span><span class="pill pending">Pending</span><span>Hinges</span></div>
-        </div>
-    </section>
+        <p class="landing-footer">Built by Tyler Ledbetter as a portfolio project focused on web development, database workflows, and production deployment.</p>
+    </aside>
 </div>
 {% endblock %}

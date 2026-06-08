@@ -23,6 +23,9 @@ app = FastAPI(
     redoc_url=None,
 )
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return FileResponse("app/static/favicon.ico")
 app.add_middleware(SessionMiddleware, secret_key=os.environ.get("LCT_SECRET_KEY", "dev-only-change-this-secret"))
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
 

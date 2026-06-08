@@ -15,7 +15,13 @@ from fastapi.staticfiles import StaticFiles
 from . import database as db
 from .security import constant_time_equals, create_csrf_token, create_session_token, is_default_secret, read_session_token, secure_cookies_enabled, verify_password
 
-app = FastAPI(title="Lenovo Case Tracker Web")
+app = FastAPI(
+    title="OpenCase",
+    description="Device repair case management for IT teams.",
+    version="1.0.0",
+    docs_url=None,
+    redoc_url=None,
+)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 app.add_middleware(SessionMiddleware, secret_key=os.environ.get("LCT_SECRET_KEY", "dev-only-change-this-secret"))
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))

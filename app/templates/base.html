@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Lenovo Case Tracker Web</title>
+    <title>OpenCase</title>
     <style>
         :root { --bg:#111827; --panel:#1f2937; --panel-dark:#0f172a; --border:#374151; --text:#e5e7eb; --muted:#9ca3af; --blue:#2563eb; --blue-hover:#1d4ed8; --danger:#991b1b; }
         body { margin:0; font-family:Segoe UI,Arial,sans-serif; background:var(--bg); color:var(--text); }
@@ -59,6 +59,38 @@
         .work-order-picker { margin-top:10px; padding:10px; border:1px solid #4b5563; border-radius:8px; background:var(--panel-dark); display:none; }
         .summary-copy { position:absolute; left:-9999px; top:-9999px; width:1px; height:1px; }
         .login-wrap { max-width:420px; margin:70px auto; }
+        .app-logo { height:46px; width:46px; border-radius:12px; }
+        .landing-shell { max-width:1180px; margin:38px auto; display:grid; grid-template-columns:minmax(0,0.92fr) minmax(460px,1.08fr); gap:28px; align-items:center; }
+        .landing-hero { padding:34px; }
+        .eyebrow { color:#93c5fd; font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.12em; margin-bottom:12px; }
+        .hero-title { font-size:44px; line-height:1.04; margin:0 0 14px; letter-spacing:-.04em; }
+        .hero-copy { color:#cbd5e1; font-size:17px; line-height:1.55; margin:0 0 22px; max-width:590px; }
+        .feature-list { display:grid; gap:10px; margin:22px 0; }
+        .feature-item { display:flex; gap:10px; align-items:flex-start; color:#dbeafe; }
+        .feature-icon { background:rgba(96,165,250,.16); border:1px solid rgba(147,197,253,.28); border-radius:10px; min-width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center; }
+        .auth-panel { margin-top:24px; padding:18px; background:rgba(15,23,42,.68); border:1px solid rgba(148,163,184,.22); border-radius:16px; }
+        .auth-actions { display:grid; gap:10px; }
+        .button.auth-button { width:100%; justify-content:center; padding:11px 14px; font-size:14px; margin:0; }
+        .button.google-button { background:#fff; color:#111827; border-color:#e5e7eb; }
+        .button.google-button:hover { background:#f8fafc; }
+        .divider { display:flex; align-items:center; gap:12px; color:#94a3b8; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; margin:14px 0; }
+        .divider::before,.divider::after { content:""; height:1px; flex:1; background:rgba(148,163,184,.25); }
+        .mockup-card { padding:18px; border-radius:22px; background:linear-gradient(180deg,rgba(30,41,59,.96),rgba(15,23,42,.96)); border:1px solid rgba(148,163,184,.22); box-shadow:0 24px 70px rgba(0,0,0,.32); }
+        .mockup-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+        .window-dots { display:flex; gap:6px; } .window-dots span { width:10px; height:10px; border-radius:999px; background:#64748b; display:block; }
+        .mockup-title { font-weight:800; color:#e2e8f0; }
+        .mockup-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px; }
+        .mock-stat { background:#0f172a; border:1px solid #334155; border-radius:12px; padding:12px; }
+        .mock-stat strong { display:block; font-size:20px; } .mock-stat span { color:#94a3b8; font-size:12px; }
+        .mock-table { overflow:hidden; border:1px solid #334155; border-radius:14px; background:#0f172a; }
+        .mock-row { display:grid; grid-template-columns:.8fr 1fr .8fr 1fr; gap:10px; padding:10px 12px; border-bottom:1px solid #1e293b; color:#cbd5e1; font-size:12px; }
+        .mock-row.header { color:#93c5fd; font-weight:800; text-transform:uppercase; letter-spacing:.05em; background:#111827; }
+        .mock-row:last-child { border-bottom:0; }
+        .pill { width:max-content; border-radius:999px; padding:3px 8px; font-weight:800; font-size:11px; }
+        .pill.pending { background:rgba(245,158,11,.16); color:#fbbf24; }
+        .pill.replaced { background:rgba(16,185,129,.16); color:#6ee7b7; }
+        .pill.ordered { background:rgba(59,130,246,.16); color:#93c5fd; }
+        @media (max-width:950px) { .landing-shell { grid-template-columns:1fr; margin:18px auto; } .hero-title { font-size:34px; } .mockup-stats { grid-template-columns:repeat(2,1fr); } }
         @media (max-width:950px) { .dashboard-grid { grid-template-columns:1fr; } }
         table th a {
     color: #dce6f2;
@@ -91,10 +123,10 @@ table th {
 <header>
     <div class="topbar">
         <div style="display:flex; align-items:center; gap:12px;">
-            <img src="/static/LCT_ICON.jpg" alt="Lenovo Case Tracker Web" style="height:46px; border-radius:10px;">
+            <img class="app-logo" src="/static/open_case_logo.svg" alt="OpenCase logo">
             <div>
-                <h1>Lenovo Case Tracker Web</h1>
-                <div class="subtitle">Repair tracking, repeat-device review, and workflow analytics</div>
+                <h1>OpenCase</h1>
+                <div class="subtitle">Device repair case management for IT teams</div>
             </div>
         </div>
 
@@ -111,7 +143,6 @@ table th {
             <a href="/users">Users</a>
             <a href="/backups">Backups</a>
             {% endif %}
-            
             <form class="logout-form" method="post" action="/logout">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <button class="logout-button" type="submit">Logout</button>

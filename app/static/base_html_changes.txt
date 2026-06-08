@@ -1,0 +1,10 @@
+Add inside the <head> section of app/templates/base.html:
+
+<link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+
+And update the title to:
+
+<title>OpenCase | Repair Workflow Management</title>

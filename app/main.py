@@ -17,7 +17,7 @@ from .security import constant_time_equals, create_csrf_token, create_session_to
 
 app = FastAPI(
     title="OpenCase",
-    description="Device repair case management for IT teams.",
+    description="Portfolio repair workflow application for work orders, parts, repeat devices, analytics, and role-based access.",
     version="1.0.0",
     docs_url=None,
     redoc_url=None,
@@ -43,7 +43,7 @@ STATUS_COLORS = {"Total":"total","Ordered":"ordered","Pending":"pending","Replac
 
 DEMO_USERNAME = "demo"
 DEMO_DISPLAY_NAME = "Demo User"
-DEMO_EMAIL = "demo@lenovocasetracker.local"
+DEMO_EMAIL = "demo@opencase.local"
 
 
 
@@ -60,11 +60,11 @@ async def security_headers(request: Request, call_next):
 
 
 def set_session_cookie(response: RedirectResponse, user_id: int) -> None:
-    response.set_cookie("lct_session", create_session_token(user_id), httponly=True, samesite="lax", secure=secure_cookies_enabled(), max_age=60 * 60 * 8)
+    response.set_cookie("lct_session", create_session_token(user_id), httponly=True, samesite="strict", secure=secure_cookies_enabled(), max_age=60 * 60 * 8)
 
 
 def set_csrf_cookie(response: Response, token: str) -> None:
-    response.set_cookie("csrf_token", token, httponly=True, samesite="lax", secure=secure_cookies_enabled(), max_age=60 * 60 * 8)
+    response.set_cookie("csrf_token", token, httponly=True, samesite="strict", secure=secure_cookies_enabled(), max_age=60 * 60 * 8)
 
 
 def require_csrf(request: Request, csrf_token: str) -> None:
@@ -85,7 +85,7 @@ def current_user(request: Request) -> dict:
     user_id = read_session_token(request.cookies.get("lct_session"))
     user = db.get_user_by_id(user_id) if user_id else None
     if not user:
-        raise HTTPException(status_code=307, headers={"Location": "/login"})
+        raise HTTPException(status_code=307, headers={"Location": f"/login?message=login_required&next={request.url.path}"})
     return user
 
 
@@ -148,21 +148,41 @@ def ensure_demo_user() -> dict:
     return user
 
 
+def login_template_context(message: str = "", error: str = "") -> dict:
+    counts = db.dashboard_counts()
+    open_count = counts.get("Total", 0) - counts.get("Complete", 0)
+    if message == "login_required" and not error:
+        error = "Please log in to continue."
+    return {
+        "user": None,
+        "error": error,
+        "google_enabled": hasattr(oauth, "google"),
+        "local_auth_enabled": os.environ.get("LOCAL_AUTH_ENABLED", "false").strip().lower() == "true",
+        "demo_enabled": demo_login_enabled(),
+        "landing_stats": {
+            "total": counts.get("Total", 0),
+            "open": open_count,
+            "followups": counts.get("Follow-ups", 0),
+            "repeat_serials": counts.get("Repeat Serials", 0),
+        },
+    }
+
+
 @app.get("/login")
-def login_page(request: Request):
+def login_page(request: Request, message: str = ""):
     if current_user_optional(request):
         return RedirectResponse("/", status_code=303)
-    return template(request, "login.html", {"user": None, "error": "", "google_enabled": hasattr(oauth, "google"), "local_auth_enabled": os.environ.get("LOCAL_AUTH_ENABLED", "false").strip().lower() == "true", "demo_enabled": demo_login_enabled()})
+    return template(request, "login.html", login_template_context(message=message))
 
 
 @app.post("/login")
 def login(request: Request, username: str = Form(...), password: str = Form(...), csrf_token: str = Form(...)):
     require_csrf(request, csrf_token)
     if os.environ.get("LOCAL_AUTH_ENABLED", "false").strip().lower() != "true":
-        return template(request, "login.html", {"user": None, "error": "Local login is disabled. Use Google login.", "google_enabled": hasattr(oauth, "google"), "local_auth_enabled": False, "demo_enabled": demo_login_enabled()})
+        return template(request, "login.html", login_template_context(error="Local login is disabled. Use Google login."))
     user = db.get_user_by_username(username)
     if not user or not verify_password(password, user["password_hash"]):
-        return template(request, "login.html", {"user": None, "error": "Invalid username or password.", "google_enabled": hasattr(oauth, "google"), "local_auth_enabled": os.environ.get("LOCAL_AUTH_ENABLED", "false").strip().lower() == "true", "demo_enabled": demo_login_enabled()})
+        return template(request, "login.html", login_template_context(error="Invalid username or password."))
     redirect = RedirectResponse("/", status_code=303)
     set_session_cookie(redirect, user["id"])
     return redirect
@@ -220,7 +240,7 @@ def logout(request: Request, csrf_token: str = Form(...)):
 
 @app.get("/")
 def dashboard(request: Request, user: dict = Depends(current_user)):
-    return template(request, "dashboard.html", {"user": user, "warning_default_secret": is_default_secret(), "counts": db.dashboard_counts(), "repeats": db.repeat_serial_groups(), "oldest_open": db.oldest_open_cases(limit=25), "status_colors": STATUS_COLORS})
+    return template(request, "dashboard.html", {"user": user, "warning_default_secret": is_default_secret(), "counts": db.dashboard_counts(), "repeats": db.repeat_serial_groups(), "oldest_open": db.oldest_open_cases(limit=12), "status_colors": STATUS_COLORS})
 
 
 def sorted_cases(rows: list[dict], sort: str = "work_order", direction: str = "asc") -> list[dict]:

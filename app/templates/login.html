@@ -355,7 +355,7 @@
         <h2>OpenCase streamlines enterprise work order and part tracking.</h2>
         <p class="hero-copy">
             A cloud-hosted repair workflow platform for IT teams: track cases, monitor aging work orders,
-            identify repeat devices, manage users, import/export CSV data, and review operational analytics from one dashboard.
+            identify repeat devices, manage users, import/export CSV data, and review live operational analytics from one dashboard.
         </p>
 
         <div class="hero-actions">
@@ -374,23 +374,23 @@
         </div>
 
         <div class="mockup-card" aria-label="OpenCase dashboard preview">
-            <div class="mockup-topbar"><span class="mock-dot"></span><span class="mock-dot"></span><span class="mock-dot"></span><span class="muted" style="margin-left:8px;">OpenCase dashboard preview</span></div>
+            <div class="mockup-topbar"><span class="mock-dot"></span><span class="mock-dot"></span><span class="mock-dot"></span><span class="muted" style="margin-left:8px;">Live OpenCase demo snapshot</span></div>
             <div class="mockup-body">
                 <div class="mock-stats">
-                    <div class="mock-stat"><strong>128</strong><span>Total Cases</span></div>
-                    <div class="mock-stat"><strong>37</strong><span>Open</span></div>
-                    <div class="mock-stat"><strong>9</strong><span>Follow-ups</span></div>
-                    <div class="mock-stat"><strong>6</strong><span>Repeat Serials</span></div>
+                    <div class="mock-stat"><strong>{{ landing_stats.total }}</strong><span>Total Cases</span></div>
+                    <div class="mock-stat"><strong>{{ landing_stats.open }}</strong><span>Open</span></div>
+                    <div class="mock-stat"><strong>{{ landing_stats.followups }}</strong><span>Follow-ups</span></div>
+                    <div class="mock-stat"><strong>{{ landing_stats.repeat_serials }}</strong><span>Repeat Groups</span></div>
                 </div>
                 <div class="mock-content-grid">
                     <div class="mock-table">
-                        <div class="mock-row"><strong>WO</strong><strong>Serial</strong><strong>Status</strong></div>
+                        <div class="mock-row"><strong>Work Order</strong><strong>Serial</strong><strong>Status</strong></div>
                         <div class="mock-row"><span>482193</span><span>PF4X2Q91</span><span class="mock-badge">Pending</span></div>
                         <div class="mock-row"><span>482311</span><span>PW03KD8A</span><span class="mock-badge">Ordered</span></div>
                         <div class="mock-row"><span>482406</span><span>PF4X2Q91</span><span class="mock-badge">Repeat</span></div>
                     </div>
                     <div class="mock-chart">
-                        <strong>Status Mix</strong>
+                        <strong>Workflow Preview</strong>
                         <div class="bar-line"><span>Ordered</span><div class="bar-track"><div class="bar-fill" style="width:72%"></div></div><span>42</span></div>
                         <div class="bar-line"><span>Pending</span><div class="bar-track"><div class="bar-fill" style="width:48%"></div></div><span>28</span></div>
                         <div class="bar-line"><span>Replaced</span><div class="bar-track"><div class="bar-fill" style="width:31%"></div></div><span>18</span></div>

@@ -1,6 +1,22 @@
 {% extends "base.html" %}
 {% block content %}
 <style>
+    .case-action-cell {
+        white-space: nowrap;
+    }
+
+    .dashboard-table td {
+        vertical-align: middle;
+    }
+
+    .case-note-preview {
+        max-width: 360px;
+        color: rgba(255, 255, 255, 0.84);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
     .dashboard-chart-grid {
         display: grid;
         grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
@@ -131,8 +147,9 @@
 
 <div class="card">
     <h2>Oldest Open Cases</h2>
+    <p class="muted">Open work ordered by age, with a compact copy action for support handoffs.</p>
     <div class="scroll-window">
-        <table id="oldestOpenTable">
+        <table id="oldestOpenTable" class="dashboard-table">
             <thead>
                 <tr>
                     <th onclick="sortTable('oldestOpenTable',0)">Work Order</th>
@@ -140,7 +157,8 @@
                     <th onclick="sortTable('oldestOpenTable',2)">Status</th>
                     <th onclick="sortTable('oldestOpenTable',3)">Parts</th>
                     <th onclick="sortTable('oldestOpenTable',4)">Timestamp</th>
-                    <th>Summary</th>
+                    <th>Notes</th>
+                    <th>Action</th>
                 </tr>
             </thead>
             <tbody>
@@ -151,13 +169,14 @@
                     <td>{{ case.status }}</td>
                     <td>{{ case.parts }}</td>
                     <td>{{ case.timestamp }}</td>
-                    <td>
+                    <td class="case-note-preview" title="{{ case.user_notes }}">{{ case.user_notes or 'No notes' }}</td>
+                    <td class="case-action-cell">
                         <textarea class="summary-copy" id="dashboard-summary-{{ case.id }}">{{ case.summary }}</textarea>
-                        <button class="small-button" type="button" data-copy-target="dashboard-summary-{{ case.id }}" onclick="copyTextFromElement('dashboard-summary-{{ case.id }}')">Copy</button>
+                        <button class="small-button" type="button" data-copy-target="dashboard-summary-{{ case.id }}" onclick="copyTextFromElement('dashboard-summary-{{ case.id }}')">Copy Summary</button>
                     </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="6" class="muted">No open cases found.</td></tr>
+                <tr><td colspan="7" class="muted">No open cases found.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

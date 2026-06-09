@@ -1,6 +1,6 @@
-# 🖥️ Lenovo Case Tracker Web
+# 🖥️ OpenCase
 
-A FastAPI-based web application built for tracking Lenovo repair cases, repeat hardware issues, repair statuses, follow-ups, and workflow analytics in real-world K-12 IT environments.
+A FastAPI-based web application built for tracking laptop repair cases, repeat hardware issues, repair statuses, follow-ups, and workflow analytics in real-world K-12 IT environments.
 
 This project started as a desktop Python utility used for managing daily repair workflows and eventually evolved into a database-backed web application with authentication, analytics, and multi-user support.
 
@@ -57,7 +57,7 @@ Administrative and destructive actions are restricted.
 - Oldest open case tracking
 - Status history tracking
 - Persistent sorting and filtering
-- Lenovo case text parsing
+- Lenovo NGSP case text parsing
 - Quick copy case summaries
 
 ### 📊 Analytics

@@ -102,6 +102,19 @@ Administrative and destructive actions are restricted.
 
 ---
 
+## Desktop Version
+
+A standalone desktop version is available under Releases.
+
+- Local SQLite database
+- No server setup required
+- No internet connection required
+- Data stored locally
+
+Download the latest release from the Releases page.
+
+---
+
 ## 🧠 Project Background
 
 This project was built around real-world repair workflows used in K-12 IT support environments.

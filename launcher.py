@@ -18,8 +18,11 @@ def run_server():
     os.environ["OPENCASE_DATA_DIR"] = str(app_data_dir())
     os.environ["LOCAL_MODE"] = "true"
     print("LOCAL_MODE =", os.environ.get("LOCAL_MODE"))
+
+    from app.main import app
+
     uvicorn.run(
-        "app.main:app",
+        app,
         host="127.0.0.1",
         port=8000,
         reload=False,
@@ -27,10 +30,12 @@ def run_server():
         log_level="warning",
     )
 
-
 if __name__ == "__main__":
     thread = threading.Thread(target=run_server, daemon=True)
     thread.start()
+
     time.sleep(2)
     webbrowser.open("http://127.0.0.1:8000")
-    input("OpenCase Tracker is running locally. Press Enter to close...\n")
+
+    while True:
+        time.sleep(1)

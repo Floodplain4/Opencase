@@ -9,3 +9,20 @@ __pycache__/
 dist/
 build/
 *.spec
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# Python
+__pycache__/
+*.pyc
+
+# Local data
+*.db
+*.csv
+
+# IDE
+.vscode/
+.idea/

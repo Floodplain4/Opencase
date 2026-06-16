@@ -1,4 +1,5 @@
 import os
+import sys
 from collections import Counter
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -15,6 +16,13 @@ from fastapi.staticfiles import StaticFiles
 from . import database as db
 from .security import constant_time_equals, create_csrf_token, create_session_token, is_default_secret, read_session_token, secure_cookies_enabled, verify_password
 
+def resource_path(relative_path: str) -> str:
+    """Return a path that works both normally and inside a PyInstaller EXE."""
+    if hasattr(sys, "_MEIPASS"):
+        return str(Path(sys._MEIPASS) / relative_path)
+    return str(Path(relative_path))
+
+
 app = FastAPI(
     title="OpenCase",
     description="Portfolio repair workflow application for work orders, parts, repeat devices, analytics, and role-based access.",
@@ -22,12 +30,12 @@ app = FastAPI(
     docs_url=None,
     redoc_url=None,
 )
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.mount("/static", StaticFiles(directory=resource_path("app/static")), name="static")
 @app.get("/favicon.ico", include_in_schema=False)
 def favicon():
-    return FileResponse("app/static/favicon.ico")
+    return FileResponse(resource_path("app/static/favicon.ico"))
 app.add_middleware(SessionMiddleware, secret_key=os.environ.get("LCT_SECRET_KEY", "dev-only-change-this-secret"))
-templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
+templates = Jinja2Templates(directory=resource_path("app/templates"))
 
 if secure_cookies_enabled():
     app.add_middleware(HTTPSRedirectMiddleware)

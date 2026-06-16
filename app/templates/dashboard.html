@@ -90,7 +90,7 @@
     }
 </style>
 
-{% if warning_default_secret %}<div class="warning">Development secret key is still in use. Set LCT_SECRET_KEY before deployment.</div>{% endif %}
+{% if warning_default_secret and not user.username == "localadmin" %}<div class="warning">Development secret key is still in use. Set LCT_SECRET_KEY before deployment.</div>{% endif %}
 
 <div class="dashboard-grid">
     <div class="card">

@@ -19,12 +19,29 @@ def project_root() -> Path:
 
 
 def db_path() -> Path:
+    if os.environ.get("LOCAL_MODE", "false").strip().lower() == "true":
+        appdata = os.getenv("APPDATA")
+        if appdata:
+            path = Path(appdata) / "OpenCaseTracker"
+        else:
+            path = Path.home() / ".opencasetracker"
+        path.mkdir(parents=True, exist_ok=True)
+        return path / DB_NAME
+
     return project_root() / DB_NAME
 
 
 def backup_dir() -> Path:
-    path = project_root() / "backups"
-    path.mkdir(exist_ok=True)
+    if os.environ.get("LOCAL_MODE", "false").strip().lower() == "true":
+        appdata = os.getenv("APPDATA")
+        if appdata:
+            path = Path(appdata) / "OpenCaseTracker" / "backups"
+        else:
+            path = Path.home() / ".opencasetracker" / "backups"
+    else:
+        path = project_root() / "backups"
+
+    path.mkdir(parents=True, exist_ok=True)
     return path
 
 
@@ -214,6 +231,14 @@ def initialize_database() -> None:
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (admin_username, admin_display, hash_password(admin_password), "admin", 1, current_timestamp(), "local", None),
+                )
+            elif os.environ.get("LOCAL_MODE", "false").strip().lower() == "true":
+                conn.execute(
+                    """
+                    INSERT INTO users (username, display_name, password_hash, role, is_active, created_at, auth_provider, email)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    ("localadmin", "Local Administrator", hash_password(os.urandom(32).hex()), "admin", 1, current_timestamp(), "local", "localadmin@opencase.local"),
                 )
             else:
                 raise RuntimeError(

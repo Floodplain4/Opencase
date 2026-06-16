@@ -49,6 +49,30 @@ DEMO_DISPLAY_NAME = "Demo User"
 DEMO_EMAIL = "demo@opencase.local"
 
 
+def local_mode() -> bool:
+    return os.environ.get("LOCAL_MODE", "false").strip().lower() == "true"
+
+
+def ensure_local_admin() -> dict:
+    user = db.get_user_by_username("localadmin")
+    if user:
+        return user
+
+    db.create_user(
+        username="localadmin",
+        display_name="Local Administrator",
+        password=os.urandom(24).hex(),
+        role="admin",
+        email="localadmin@opencase.local",
+    )
+
+    user = db.get_user_by_username("localadmin")
+    if not user:
+        raise HTTPException(status_code=500, detail="Local admin user could not be created.")
+    return user
+
+
+
 
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
@@ -85,6 +109,9 @@ def cases_url(search: str = "", status: str = "All", part: str = "All", hide_com
 
 
 def current_user(request: Request) -> dict:
+    if local_mode():
+        return ensure_local_admin()
+
     user_id = read_session_token(request.cookies.get("lct_session"))
     user = db.get_user_by_id(user_id) if user_id else None
     if not user:
@@ -93,6 +120,9 @@ def current_user(request: Request) -> dict:
 
 
 def current_user_optional(request: Request) -> dict | None:
+    if local_mode():
+        return ensure_local_admin()
+
     user_id = read_session_token(request.cookies.get("lct_session"))
     return db.get_user_by_id(user_id) if user_id else None
 
@@ -159,9 +189,9 @@ def login_template_context(message: str = "", error: str = "") -> dict:
     return {
         "user": None,
         "error": error,
-        "google_enabled": hasattr(oauth, "google"),
-        "local_auth_enabled": os.environ.get("LOCAL_AUTH_ENABLED", "false").strip().lower() == "true",
-        "demo_enabled": demo_login_enabled(),
+        "google_enabled": hasattr(oauth, "google") and not local_mode(),
+        "local_auth_enabled": os.environ.get("LOCAL_AUTH_ENABLED", "false").strip().lower() == "true" and not local_mode(),
+        "demo_enabled": demo_login_enabled() and not local_mode(),
         "landing_stats": {
             "total": counts.get("Total", 0),
             "open": open_count,
@@ -173,6 +203,8 @@ def login_template_context(message: str = "", error: str = "") -> dict:
 
 @app.get("/login")
 def login_page(request: Request, message: str = ""):
+    if local_mode():
+        return RedirectResponse("/", status_code=303)
     if current_user_optional(request):
         return RedirectResponse("/", status_code=303)
     return template(request, "login.html", login_template_context(message=message))
@@ -235,6 +267,9 @@ def demo_login():
 
 @app.post("/logout")
 def logout(request: Request, csrf_token: str = Form(...)):
+    if local_mode():
+        return RedirectResponse("/", status_code=303)
+
     require_csrf(request, csrf_token)
     redirect = RedirectResponse("/login", status_code=303)
     redirect.delete_cookie("lct_session")

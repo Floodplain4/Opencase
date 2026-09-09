@@ -1,4 +1,203 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card">{% if mode == "new" %}<h2>Add Case</h2><form method="post" action="/cases/new">{% else %}<h2>Edit Case</h2><form method="post" action="/cases/{{ case.id }}/edit">{% endif %}<input type="hidden" name="csrf_token" value="{{ csrf_token }}">{% if errors %}<div class="errors"><strong>Fix this first:</strong><ul>{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul></div>{% endif %}<div class="card"><h3>Paste Repair Case Info</h3><textarea id="lenovoPasteText" class="paste-box" placeholder="Paste repair case text here"></textarea><br><button type="button" onclick="parseLenovoText()">Parse Pasted Text</button><div id="workOrderPicker" class="work-order-picker"><strong>Multiple work orders found. Pick one:</strong><div id="workOrderOptions"></div></div></div><p><label>Work Order</label><br><input id="work_order" name="work_order" required value="{{ case.work_order if case else '' }}"></p><p><label>Serial Number</label><br><input id="serial_number" name="serial_number" required value="{{ case.serial_number if case else '' }}"></p><p><label>Status</label><br><select name="status">{% for option in statuses %}<option value="{{ option }}" {% if case and case.status == option %}selected{% endif %}>{{ option }}</option>{% endfor %}</select></p><div class="part-grid">{% for part in parts %}<label class="part-pill"><input type="checkbox" name="parts" value="{{ part }}" {% if part in selected_parts %}checked{% endif %}><span>{{ part }}</span></label>{% endfor %}</div><p><label>Other</label><br><input id="other" name="other" value="{{ other }}"></p><p><label>Notes</label><br><textarea id="notes" name="notes" rows="4">{{ user_notes }}</textarea></p><button type="submit">Save</button><a class="button secondary" href="/cases">Cancel</a></form></div>{% if mode == "edit" and history %}<div class="card"><h2>Status History</h2><table><tr><th>Changed At</th><th>Old</th><th>New</th><th>Changed By</th><th>Note</th></tr>{% for item in history %}<tr><td>{{ item.changed_at }}</td><td>{{ item.old_status or '' }}</td><td>{{ item.new_status }}</td><td>{{ item.changed_by }}</td><td>{{ item.note }}</td></tr>{% endfor %}</table></div>{% endif %}
+<style>
+    .case-form-wrap { max-width: 980px; margin: 0 auto; }
+    .case-form-card { padding: 24px; }
+    .case-form-header { display:flex; justify-content:space-between; gap:18px; align-items:flex-start; margin-bottom:22px; }
+    .case-form-header h2 { margin:0 0 5px; font-size:25px; }
+    .case-form-header p { margin:0; color:var(--muted); font-size:14px; }
+    .case-id { color:#93c5fd; font-size:13px; background:var(--panel-dark); border:1px solid var(--border); border-radius:999px; padding:6px 10px; white-space:nowrap; }
+    .form-section { border-top:1px solid var(--border); padding-top:20px; margin-top:20px; }
+    .form-section:first-of-type { border-top:0; padding-top:0; margin-top:0; }
+    .form-section-title { margin:0 0 5px; font-size:16px; }
+    .form-help { margin:0 0 14px; color:var(--muted); font-size:13px; line-height:1.45; }
+    .form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+    .field { min-width:0; }
+    .field.full { grid-column:1 / -1; }
+    .field label, .field-label { display:block; margin-bottom:7px; color:#dbeafe; font-size:13px; font-weight:650; }
+    .field input[type="text"], .field select, .field textarea { width:100%; box-sizing:border-box; min-height:40px; }
+    .field textarea { resize:vertical; min-height:110px; }
+    .parts-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+    .parts-grid .part-pill span { height:100%; box-sizing:border-box; }
+    .followup-control { display:flex; align-items:flex-start; gap:10px; background:var(--panel-dark); border:1px solid var(--border); border-radius:10px; padding:12px 14px; cursor:pointer; }
+    .followup-control input { margin-top:3px; accent-color:#f59e0b; }
+    .followup-control strong { display:block; color:#fbbf24; font-size:13px; }
+    .followup-control small { display:block; color:var(--muted); margin-top:3px; line-height:1.35; }
+    .followup-control.disabled { opacity:.55; cursor:not-allowed; }
+    .parser-panel { background:var(--panel-dark); border:1px solid var(--border); border-radius:11px; padding:15px; }
+    .parser-panel textarea { width:100%; box-sizing:border-box; min-height:115px; resize:vertical; }
+    .parser-actions { display:flex; justify-content:flex-end; margin-top:9px; }
+    details.parser-details { border:1px solid var(--border); border-radius:10px; background:var(--panel-dark); }
+    details.parser-details summary { cursor:pointer; padding:13px 15px; color:#dbeafe; font-weight:650; user-select:none; }
+    details.parser-details[open] summary { border-bottom:1px solid var(--border); }
+    details.parser-details .parser-inner { padding:15px; }
+    .form-actions { display:flex; justify-content:flex-end; align-items:center; gap:8px; border-top:1px solid var(--border); margin-top:24px; padding-top:18px; }
+    .form-actions .button, .form-actions button { min-width:110px; }
+    .history-card { max-width:980px; margin:16px auto 0; }
+    .history-card h2 { margin-top:0; font-size:18px; }
+    .history-scroll { overflow-x:auto; border:1px solid var(--border); border-radius:9px; }
+    .errors ul { margin-bottom:0; }
+    @media (max-width:720px) {
+        .case-form-card { padding:17px; }
+        .form-grid { grid-template-columns:1fr; }
+        .field.full { grid-column:auto; }
+        .parts-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+        .case-form-header { flex-direction:column; }
+        .form-actions { justify-content:stretch; }
+        .form-actions .button, .form-actions button { flex:1; }
+    }
+</style>
+
+<div class="case-form-wrap">
+    <div class="card case-form-card">
+        <div class="case-form-header">
+            <div>
+                {% if mode == "new" %}
+                    <h2>Add Repair Case</h2>
+                    <p>Create a repair record manually or import the basic details from Lenovo case text.</p>
+                {% else %}
+                    <h2>Edit Repair Case</h2>
+                    <p>Update the repair details, status, parts, notes, or follow-up flag.</p>
+                {% endif %}
+            </div>
+            {% if mode == "edit" and case %}
+                <div class="case-id">{{ case.serial_number }} · WO {{ case.work_order }}</div>
+            {% endif %}
+        </div>
+
+        {% if mode == "new" %}
+            <form method="post" action="/cases/new">
+        {% else %}
+            <form method="post" action="/cases/{{ case.id }}/edit">
+        {% endif %}
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+            {% if errors %}
+                <div class="errors">
+                    <strong>Fix this first:</strong>
+                    <ul>{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul>
+                </div>
+            {% endif %}
+
+            {% if mode == "new" %}
+                <section class="form-section">
+                    <h3 class="form-section-title">Import from Lenovo</h3>
+                    <p class="form-help">Paste Lenovo repair case text and OpenCase will fill the work order, serial number, and recognized parts. Review the fields before saving.</p>
+                    <div class="parser-panel">
+                        <textarea id="lenovoPasteText" placeholder="Paste Lenovo repair case text here..."></textarea>
+                        <div class="parser-actions"><button type="button" onclick="parseLenovoText()">Parse Information</button></div>
+                        <div id="workOrderPicker" class="work-order-picker"><strong>Multiple work orders found. Pick one:</strong><div id="workOrderOptions"></div></div>
+                    </div>
+                </section>
+            {% endif %}
+
+            <section class="form-section">
+                <h3 class="form-section-title">Repair Details</h3>
+                <p class="form-help">The core information used to identify and track this repair.</p>
+                <div class="form-grid">
+                    <div class="field">
+                        <label for="work_order">Work Order</label>
+                        <input type="text" id="work_order" name="work_order" required value="{{ case.work_order if case else '' }}">
+                    </div>
+                    <div class="field">
+                        <label for="serial_number">Serial Number</label>
+                        <input type="text" id="serial_number" name="serial_number" required value="{{ case.serial_number if case else '' }}">
+                    </div>
+                    <div class="field">
+                        <label for="status">Status</label>
+                        <select id="status" name="status" onchange="syncFollowupControl()">
+                            {% for option in statuses %}
+                                <option value="{{ option }}" {% if case and case.status == option %}selected{% endif %}>{{ option }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="field">
+                        <span class="field-label">Follow-up</span>
+                        <label id="followupControl" class="followup-control">
+                            <input id="followup" type="checkbox" name="followup" value="true"
+                                {% if form_followup is defined and form_followup %}checked{% elif form_followup is not defined and case and case.manual_followup %}checked{% endif %}>
+                            <span>
+                                <strong>Needs follow-up</strong>
+                                <small id="followupHelp">Manually flag this repair for attention. OpenCase also flags inactive repairs automatically after 5 days.</small>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+            </section>
+
+            <section class="form-section">
+                <h3 class="form-section-title">Parts</h3>
+                <p class="form-help">Select the parts involved in this repair. Use Other for anything not listed.</p>
+                <div class="parts-grid">
+                    {% for part in parts %}
+                        <label class="part-pill"><input type="checkbox" name="parts" value="{{ part }}" {% if part in selected_parts %}checked{% endif %}><span>{{ part }}</span></label>
+                    {% endfor %}
+                </div>
+                <div class="field" style="margin-top:12px;">
+                    <label for="other">Other</label>
+                    <input type="text" id="other" name="other" value="{{ other }}" placeholder="Optional additional part">
+                </div>
+            </section>
+
+            <section class="form-section">
+                <h3 class="form-section-title">Notes</h3>
+                <div class="field">
+                    <label for="notes">Repair notes</label>
+                    <textarea id="notes" name="notes" rows="4" placeholder="Add useful repair notes...">{{ user_notes }}</textarea>
+                </div>
+            </section>
+
+            {% if mode == "edit" %}
+                <section class="form-section">
+                    <details class="parser-details">
+                        <summary>Re-import Lenovo information</summary>
+                        <div class="parser-inner">
+                            <p class="form-help">Use this only if you need to parse Lenovo case text again. Parsed values can replace fields above, so review them before saving.</p>
+                            <textarea id="lenovoPasteText" class="paste-box" placeholder="Paste Lenovo repair case text here..."></textarea>
+                            <div class="parser-actions"><button type="button" onclick="parseLenovoText()">Parse Information</button></div>
+                            <div id="workOrderPicker" class="work-order-picker"><strong>Multiple work orders found. Pick one:</strong><div id="workOrderOptions"></div></div>
+                        </div>
+                    </details>
+                </section>
+            {% endif %}
+
+            <div class="form-actions">
+                <a class="button secondary" href="/cases">Cancel</a>
+                <button type="submit">{% if mode == "new" %}Add Repair Case{% else %}Save Changes{% endif %}</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if mode == "edit" and history %}
+<div class="card history-card">
+    <h2>Status History</h2>
+    <div class="history-scroll">
+        <table>
+            <tr><th>Changed At</th><th>Old</th><th>New</th><th>Changed By</th><th>Note</th></tr>
+            {% for item in history %}
+                <tr><td>{{ item.changed_at }}</td><td>{{ item.old_status or '' }}</td><td>{{ item.new_status }}</td><td>{{ item.changed_by }}</td><td>{{ item.note }}</td></tr>
+            {% endfor %}
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<script>
+function syncFollowupControl() {
+    const status = document.getElementById('status');
+    const checkbox = document.getElementById('followup');
+    const control = document.getElementById('followupControl');
+    const help = document.getElementById('followupHelp');
+    if (!status || !checkbox || !control || !help) return;
+    const complete = status.value === 'Complete';
+    checkbox.disabled = complete;
+    if (complete) checkbox.checked = false;
+    control.classList.toggle('disabled', complete);
+    help.textContent = complete
+        ? 'Complete repairs cannot be flagged for follow-up.'
+        : 'Manually flag this repair for attention. OpenCase also flags inactive repairs automatically after 5 days.';
+}
+document.addEventListener('DOMContentLoaded', syncFollowupControl);
+</script>
 {% endblock %}

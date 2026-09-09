@@ -261,7 +261,7 @@
 <div class="cases-header">
   <div>
     <h2>Cases</h2>
-    <p class="muted">Search and manage repair work. Cases that go 3 days without an update are automatically flagged for follow-up.</p>
+    <p class="muted">Search and manage repair work. Cases that go 5 days without an update are automatically flagged for follow-up.</p>
   </div>
   <a class="button" id="addCaseButton" href="/cases/new">+ Add Case</a>
 </div>
@@ -382,7 +382,7 @@
             </span>
             {% if case.serial_number in repeat_serials %}<span class="repeat-badge">Repeat</span>{% endif %}
             {% if case.auto_followup %}
-              <span class="auto-followup-badge" title="Automatically flagged because this case has not been updated in 3 days"><span class="auto-followup-icon" aria-hidden="true">⚠</span> Follow-up</span>
+              <span class="auto-followup-badge" title="Automatically flagged because this case has not been updated in 5 days"><span class="auto-followup-icon" aria-hidden="true">⚠</span> Follow-up</span>
             {% elif case.manual_followup %}
               <span class="followup-badge">Follow-up</span>
             {% endif %}
@@ -402,7 +402,7 @@
               <span class="muted">—</span>
             {% elif case.age_days >= 7 %}
               <span class="age-days very-stale">{{ case.age_days }}d</span>
-            {% elif case.age_days >= 3 %}
+            {% elif case.age_days >= 5 %}
               <span class="age-days stale">{{ case.age_days }}d</span>
             {% else %}
               <span class="age-days">{{ case.age_days }}d</span>
@@ -420,7 +420,7 @@
                   <button class="small-button secondary" type="submit">{{ 'Clear follow-up' if case.manual_followup else 'Follow-up' }}</button>
                 </form>
               {% else %}
-                <span class="auto-followup-badge" title="Update the case to reset the 3-day timer"><span class="auto-followup-icon" aria-hidden="true">⚠</span> Auto follow-up</span>
+                <span class="auto-followup-badge" title="Update the case to reset the 5-day timer"><span class="auto-followup-icon" aria-hidden="true">⚠</span> Auto follow-up</span>
               {% endif %}
               <a class="button small-button" href="/cases/{{ case.id }}/edit">Edit</a>
               <form method="post" action="/cases/{{ case.id }}/delete" onsubmit="return confirm('Delete this case?');">

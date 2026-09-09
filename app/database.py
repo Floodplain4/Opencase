@@ -209,6 +209,10 @@ def initialize_database() -> None:
                 """
             )
 
+        # Completed repairs should never remain manually flagged for follow-up.
+        # This also cleans up flags created by older OpenCase versions.
+        conn.execute("UPDATE cases SET followup = 0 WHERE status = ? AND followup <> 0", ("Complete",))
+
         user_count = conn.execute("SELECT COUNT(*) AS count FROM users").fetchone()["count"]
         if user_count == 0:
             admin_email = os.environ.get("LCT_ADMIN_EMAIL", "").strip().lower()
@@ -320,7 +324,9 @@ def row_to_case(row: sqlite3.Row) -> dict:
     notes = data.get("notes") or ""
     timestamp = data.get("timestamp") or ""
     status = data.get("status") or "Ordered"
-    manual_followup = bool(data.get("followup") or 0)
+    # A completed case is never a follow-up, even if an older database row still
+    # contains a manual flag.
+    manual_followup = status != "Complete" and bool(data.get("followup") or 0)
 
     changed_at = parse_timestamp(timestamp)
     if changed_at == datetime.max:
@@ -328,7 +334,7 @@ def row_to_case(row: sqlite3.Row) -> dict:
         auto_followup = False
     else:
         age_days = max(0, (datetime.now() - changed_at).days)
-        auto_followup = status != "Complete" and age_days >= 3
+        auto_followup = status != "Complete" and age_days >= 5
 
     case = {
         "id": data.get("id"),
@@ -501,28 +507,29 @@ def validate_case_fields(work_order: str, serial_number: str, status: str) -> li
     return errors
 
 
-def create_case(work_order: str, serial_number: str, status: str, parts: list[str], other: str, notes: str, changed_by: str = "") -> int:
+def create_case(work_order: str, serial_number: str, status: str, parts: list[str], other: str, notes: str, changed_by: str = "", followup: bool = False) -> int:
     initialize_database()
     timestamp = current_timestamp()
     structured_notes = build_notes_field(parts, other, notes)
+    followup_value = 1 if followup and status.strip() != "Complete" else 0
     with get_connection() as conn:
         if conn.is_postgres:
             cursor = conn.execute(
                 """
                 INSERT INTO cases (work_order, serial_number, status, notes, timestamp, followup, assigned_to)
-                VALUES (?, ?, ?, ?, ?, 0, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 RETURNING id
                 """,
-                (work_order.strip(), serial_number.strip().upper(), status.strip(), structured_notes, timestamp, changed_by),
+                (work_order.strip(), serial_number.strip().upper(), status.strip(), structured_notes, timestamp, followup_value, changed_by),
             )
             case_id = int(cursor.fetchone()["id"])
         else:
             cursor = conn.execute(
                 """
                 INSERT INTO cases (work_order, serial_number, status, notes, timestamp, followup, assigned_to)
-                VALUES (?, ?, ?, ?, ?, 0, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (work_order.strip(), serial_number.strip().upper(), status.strip(), structured_notes, timestamp, changed_by),
+                (work_order.strip(), serial_number.strip().upper(), status.strip(), structured_notes, timestamp, followup_value, changed_by),
             )
             case_id = int(cursor.lastrowid)
         conn.execute(
@@ -536,16 +543,17 @@ def create_case(work_order: str, serial_number: str, status: str, parts: list[st
         return case_id
 
 
-def update_case(case_id: int, work_order: str, serial_number: str, status: str, parts: list[str], other: str, notes: str, changed_by: str = "") -> None:
+def update_case(case_id: int, work_order: str, serial_number: str, status: str, parts: list[str], other: str, notes: str, changed_by: str = "", followup: bool = False) -> None:
     initialize_database()
     timestamp = current_timestamp()
     structured_notes = build_notes_field(parts, other, notes)
     old_case = get_case(case_id)
     old_status = old_case["status"] if old_case else None
     with get_connection() as conn:
+        followup_value = 1 if followup and status.strip() != "Complete" else 0
         conn.execute(
-            "UPDATE cases SET work_order = ?, serial_number = ?, status = ?, notes = ?, timestamp = ? WHERE id = ?",
-            (work_order.strip(), serial_number.strip().upper(), status.strip(), structured_notes, timestamp, case_id),
+            "UPDATE cases SET work_order = ?, serial_number = ?, status = ?, notes = ?, timestamp = ?, followup = ? WHERE id = ?",
+            (work_order.strip(), serial_number.strip().upper(), status.strip(), structured_notes, timestamp, followup_value, case_id),
         )
         if old_status != status:
             conn.execute(
@@ -572,7 +580,13 @@ def update_status(case_id: int, status: str, changed_by: str = "") -> None:
     old_status = old_case["status"] if old_case else None
     timestamp = current_timestamp()
     with get_connection() as conn:
-        conn.execute("UPDATE cases SET status = ?, timestamp = ? WHERE id = ?", (status, timestamp, case_id))
+        if status == "Complete":
+            conn.execute(
+                "UPDATE cases SET status = ?, timestamp = ?, followup = 0 WHERE id = ?",
+                (status, timestamp, case_id),
+            )
+        else:
+            conn.execute("UPDATE cases SET status = ?, timestamp = ? WHERE id = ?", (status, timestamp, case_id))
         if old_status != status:
             conn.execute(
                 """
@@ -587,7 +601,10 @@ def update_status(case_id: int, status: str, changed_by: str = "") -> None:
 def set_followup(case_id: int, followup: bool) -> None:
     initialize_database()
     with get_connection() as conn:
-        conn.execute("UPDATE cases SET followup = ? WHERE id = ?", (1 if followup else 0, case_id))
+        # Never allow a completed repair to be manually flagged.
+        case = conn.execute("SELECT status FROM cases WHERE id = ?", (case_id,)).fetchone()
+        value = 1 if followup and case and case["status"] != "Complete" else 0
+        conn.execute("UPDATE cases SET followup = ? WHERE id = ?", (value, case_id))
         conn.commit()
 
 

@@ -461,6 +461,7 @@ def create_case(
     parts: list[str] | None = Form(None),
     other: str = Form(""),
     notes: str = Form(""),
+    followup: bool = Form(False),
     csrf_token: str = Form(...),
     user: dict = Depends(current_user),
 ):
@@ -486,6 +487,7 @@ def create_case(
                 "selected_parts": selected_parts,
                 "other": other,
                 "user_notes": notes,
+                "form_followup": followup,
                 "errors": errors,
             },
         )
@@ -498,6 +500,7 @@ def create_case(
         other,
         notes,
         changed_by=user["display_name"],
+        followup=followup,
     )
 
     return RedirectResponse(
@@ -546,6 +549,7 @@ def update_case(
     parts: list[str] | None = Form(None),
     other: str = Form(""),
     notes: str = Form(""),
+    followup: bool = Form(False),
     csrf_token: str = Form(...),
     user: dict = Depends(current_user),
 ):
@@ -576,6 +580,7 @@ def update_case(
                 "selected_parts": selected_parts,
                 "other": other,
                 "user_notes": notes,
+                "form_followup": followup,
                 "errors": errors,
             },
         )
@@ -589,6 +594,7 @@ def update_case(
         other,
         notes,
         changed_by=user["display_name"],
+        followup=followup,
     )
 
     return RedirectResponse(
